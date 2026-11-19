@@ -1,5 +1,5 @@
-const CACHE='cricdairy-v19';
-const ASSETS=['./','./index.html','./style.css','./db.js','./app.js','./manifest.json','./assets/admin-profile.jpg','./assets/app-display.jpg','./assets/cricdairy-icon.svg'];
+const CACHE='cricdairy-v20';
+const ASSETS=['./','./index.html','./style.css','./db.js','./app.js','./manifest.json','./assets/admin-profile.jpg','./assets/app-display.jpg'];
 self.addEventListener('install',event=>{
  event.waitUntil(caches.open(CACHE).then(cache=>Promise.all(ASSETS.map(async asset=>{
   const response=await fetch(new Request(asset,{cache:'reload'}));
