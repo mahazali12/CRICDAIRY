@@ -1,0 +1,26 @@
+{
+  "id": "./index.html",
+  "name": "CRICDAIRY Cricket Scoring",
+  "short_name": "CRICDAIRY",
+  "description": "Offline cricket scoring and match management",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#07100b",
+  "theme_color": "#07130d",
+  "icons": [
+    {
+      "src": "./assets/cricdairy-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "./assets/cricdairy-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
