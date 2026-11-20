@@ -12,7 +12,7 @@ RUN LOCALLY
 5. For future use, open the same local address. Do not move/delete the folder while using this local server.
 
 IMPORTANT
-- The app opens directly to a launch menu for teams, new matches, saved matches, history and backup/restore. It automatically saves to IndexedDB with a previous-state recovery copy and localStorage fallback. Data is local to this browser profile and computer.
+- The app opens directly to a full-screen English menu for teams/playing XI, new and live matches, resume, history, tournaments, reports/backup and settings/help. Pages are opened from this menu and the Main Menu button returns here. It automatically saves to IndexedDB with a previous-state recovery copy and localStorage fallback. Data is local to this browser profile and computer.
 - No login is required. App data is stored locally in this browser without encryption; protect your device and keep backups private.
 - Export JSON backups from Reports & Backup for a separate copy or to move data to another computer. Browsers do not permit silent writes to arbitrary backup files.
 - CSV export opens in Excel. Use Print > Save as PDF for scorecards.
@@ -23,11 +23,11 @@ IMPORTANT
 CURRENT RELEASE SCOPE
 This is a working starter application with local teams/players, standard and single/double/triple wicket
 matches, selectable playing lineups of 1–15 players per side and custom overs, ball-by-ball scoring, undo, match summaries and sharing,
-match history, series grouping/results, JSON backup/restore, CSV export, print/PDF, demo data, language
-toggle labels, and responsive layout. Extras support selectable runs and optional dismissals; innings breaks
+match history, series grouping/results, JSON backup/restore, CSV export, print/PDF, demo data,
+English interface, and responsive layout. Extras support selectable runs and optional dismissals; innings breaks
 wait for the scorer to start the next innings. Targets and run rates update during a chase, completed matches
 are saved to history automatically, and history cards can share the summary.
-The app also includes a web app manifest, standalone display mode, and offline service-worker cache for phone installation. The installed app icon uses the same admin profile picture as the app.
+The app also includes a web app manifest, standalone display mode, and offline service-worker cache for phone installation. The home menu uses a full-screen background image, and its square icon is also used for browser and installed-app icons.
 - Player career records include batting, bowling and recorded fielding figures, including appearances, averages, strike/economy rates, best score/figures, 50s/100s, maidens, boundaries, dots, catches, stumpings, run outs and Player of the Match awards. Select a fielder for catches, stumpings and run outs so those fielding figures are credited.
 
 Planned/partial modules requiring further development:
@@ -50,7 +50,7 @@ CRICKET SCORING UPDATE
 PROFILE FEATURE UPDATE
 - Admin display name and profile photo can be set from Settings & Help > Admin Profile & Display Picture.
 - Default admin display name is RAZI SHAH; a previously saved default "Admin" name is updated automatically.
-- The profile photo is resized and stored in local app data, then shown in the header, dashboard, and printed scorecard.
+- The profile photo is resized and stored in local app data, then shown in the header and printed scorecard.
 - The CRICDAIRY cricket-ball brand mark remains fixed and cannot be changed, as requested.
 - Profile data is included in the JSON backup/restore.
 

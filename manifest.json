@@ -6,15 +6,21 @@
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "orientation": "portrait",
   "background_color": "#07100b",
   "theme_color": "#07130d",
   "icons": [
     {
-      "src": "./assets/admin-profile.jpg",
-      "sizes": "any",
-      "type": "image/jpeg",
+      "src": "./assets/cricdairy-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "./assets/cricdairy-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
