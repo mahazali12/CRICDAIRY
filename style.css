@@ -72,6 +72,27 @@
 @media(max-width:700px){.playing-teams{grid-template-columns:1fr}}
 @media(max-width:700px){.match-player-fields{grid-template-columns:1fr}}
 
+.score-hero{gap:20px}
+.score-hero #inningsLabel{display:block;font-weight:700;margin-top:4px}
+.win-prediction{min-width:250px;max-width:330px;margin-top:12px;padding-top:10px;border-top:1px solid #ffffff33;text-align:left}
+.win-prediction>b{display:block;margin:5px 0;color:var(--green)}
+.win-prediction>small:last-child{display:block;margin-top:5px;font-size:11px}
+.prediction-meter{display:flex;gap:3px;height:8px;overflow:hidden;border-radius:8px}
+.prediction-meter span{display:block;transition:flex-basis .2s ease}
+#winPredictionA{background:var(--green)}
+#winPredictionB{background:#89978e}
+.match-player-panel{padding:14px 18px}
+.match-player-panel summary{cursor:pointer;list-style:none}
+.match-player-panel summary::-webkit-details-marker{display:none}
+.match-player-panel summary b,.match-player-panel summary small{display:block}
+.match-player-panel summary small{margin-top:4px;color:var(--muted)}
+.match-player-panel summary::after{content:"＋";float:right;margin-top:-30px;color:var(--green);font-size:20px}
+.match-player-panel[open] summary::after{content:"−"}
+.match-player-content{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+.match-player-section{min-width:0;padding:14px;background:var(--panel2);border-radius:11px}
+.match-player-section h3{margin-top:0}
+@media(max-width:650px){.score-hero{align-items:flex-start;flex-direction:column}.target-box{text-align:left;width:100%}.win-prediction{min-width:0;max-width:none}.match-player-content{grid-template-columns:1fr}}
+
 /* Admin profile and fixed CRICDAIRY branding */
 .profile-avatar{display:inline-flex;align-items:center;justify-content:center;object-fit:cover;border-radius:50%;background:linear-gradient(145deg,#1b6338,#10271a);border:2px solid #35d879;color:#eaffef}
 .header-profile{display:flex;align-items:center;gap:8px;font-size:12px;color:#d7e9dc;font-weight:650}

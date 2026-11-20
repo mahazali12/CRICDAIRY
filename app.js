@@ -136,7 +136,9 @@ function setup(){
  $('recordDelivery').onclick=()=>recordPendingDelivery();
  $('cancelDelivery').onclick=closeDeliveryPanel;
  $('matchPlayerTeam').onchange=()=>renderMatchPlayerControls(activeMatch());
+ $('matchPlayerEditSelect').onchange=loadMatchPlayerEditForm;
  $('addMatchPlayer').onclick=addMatchPlayer;
+ $('saveMatchPlayerEdit').onclick=saveMatchPlayerEdit;
  $('matchSeries').onchange=()=>{fillTeamSelects();updateMatchModeInfo();renderPlayingPlayerSelectors()};
  $('undoBtn').onclick=undo;$('swapBtn').onclick=()=>{const m=activeMatch();if(m&&m.non){[m.striker,m.non]=[m.non,m.striker];save()}};
  $('changeBowler').onclick=()=>{const m=activeMatch();if(!m)return;const v=$('pickBowler').value;if(v){m.bowler=v;save()}};
@@ -316,7 +318,7 @@ function renderMatchPlayerControls(m){
  const panel=$('matchPlayerPanel');
  panel.classList.toggle('hidden',!m||m.status!=='live');
  if(!m||m.status!=='live')return;
- const teamSelect=$('matchPlayerTeam'),selectedTeam=teamSelect.value;
+ const teamSelect=$('matchPlayerTeam'),selectedTeam=teamSelect.value,selectedEdit=$('matchPlayerEditSelect').value;
  teamSelect.innerHTML=m.teams.map(id=>`<option value="${esc(id)}">${esc(team(id)?.name||'Team')}</option>`).join('');
  const defaultTeam=getInnings(m).batting;
  teamSelect.value=m.teams.includes(selectedTeam)?selectedTeam:defaultTeam;
@@ -326,9 +328,29 @@ function renderMatchPlayerControls(m){
  const bench=playersFor(teamId).filter(p=>!lineup.includes(p.id));
  $('matchPlayerReplace').innerHTML='<option value="">Choose player to replace</option>'+replaceable.map(id=>`<option value="${esc(id)}">${esc(playerName(id))}</option>`).join('');
  $('matchExistingPlayer').innerHTML='<option value="">Type a new player name instead</option>'+bench.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+ const editPlayers=playersFor(teamId);
+ $('matchPlayerEditSelect').innerHTML='<option value="">Select player</option>'+editPlayers.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
  if(replaceable.includes(selectedReplace))$('matchPlayerReplace').value=selectedReplace;
  if(bench.some(p=>p.id===selectedExisting))$('matchExistingPlayer').value=selectedExisting;
+ if(editPlayers.some(p=>p.id===selectedEdit))$('matchPlayerEditSelect').value=selectedEdit;
+ else $('matchPlayerEditSelect').value=editPlayers[0]?.id||'';
+ if(selectedEdit!==$('matchPlayerEditSelect').value)loadMatchPlayerEditForm();
  $('addMatchPlayer').disabled=replaceable.length===0;
+ $('saveMatchPlayerEdit').disabled=!$('matchPlayerEditSelect').value;
+}
+function loadMatchPlayerEditForm(){
+ const player=state.players.find(item=>item.id===$('matchPlayerEditSelect').value);
+ $('matchPlayerEditName').value=player?.name||'';
+ $('matchPlayerEditRole').value=player?.role||'All-rounder';
+ $('saveMatchPlayerEdit').disabled=!player;
+}
+function saveMatchPlayerEdit(){
+ const m=activeMatch(),teamId=$('matchPlayerTeam').value,player=state.players.find(item=>item.id===$('matchPlayerEditSelect').value&&item.teamId===teamId),name=$('matchPlayerEditName').value.trim();
+ if(!m||m.status!=='live')return toast('There is no live match to update');
+ if(!player)return toast('Select a player from the chosen match team');
+ if(!name)return toast('Enter a player name');
+ player.name=name;player.role=$('matchPlayerEditRole').value;
+ save();renderScorer();toast('Player profile updated; match statistics are unchanged.');
 }
 function addMatchPlayer(){
  const m=activeMatch();
@@ -537,6 +559,48 @@ function matchResult(m){
  if(second.runs===first.runs)return 'Match tied';
  return second.runs>first.runs?`${team(second.batting)?.name||'Team'} won by ${Math.max(0,second.wicketLimit-second.wickets)} wicket${second.wicketLimit-second.wickets===1?'':'s'}`:`${team(first.batting)?.name||'Team'} won by ${first.runs-second.runs} run${first.runs-second.runs===1?'':'s'}`;
 }
+function winningPrediction(m,inn){
+ const [teamA,teamB]=m.teams;
+ if(m.status==='completed'){
+  const first=m.innings[0],second=m.innings[1];
+  if(!second||first.runs===second.runs)return {a:50,b:50,message:second?'Match tied':'Result pending'};
+  const winner=second.runs>first.runs?second.batting:first.batting;
+  return {a:winner===teamA?100:0,b:winner===teamB?100:0,message:`${team(winner)?.name||'Team'} won`};
+ }
+ const totalOvers=Number(m.overs);
+ if(!Number.isFinite(totalOvers)||totalOvers<=0)return {a:50,b:50,message:'Unavailable for this format'};
+ const baselineRate=totalOvers>=40?6.2:totalOvers<=10?8.5:7.5;
+ let battingChance;
+ if(m.current===0){
+  const progress=inn.legal/6,par=baselineRate*totalOvers;
+  const projected=m.inningsBreak?inn.runs:((inn.runs+baselineRate*2)/(progress+2))*totalOvers;
+  const wicketLimit=Math.max(1,inn.wicketLimit||10),wicketsLeft=Math.max(0,wicketLimit-inn.wickets);
+  const margin=(projected-par)/Math.max(1,par*.18)+(wicketsLeft/wicketLimit-1)*.65;
+  battingChance=1/(1+Math.exp(-Math.max(-4,Math.min(4,margin))));
+ }else{
+  const first=m.innings[0],needed=first.runs+1-inn.runs,ballsLeft=Math.max(0,totalOvers*6-inn.legal);
+  const wicketLimit=Math.max(1,inn.wicketLimit||10),wicketsLeft=Math.max(0,wicketLimit-inn.wickets);
+  if(needed<=0)battingChance=1;
+  else if(!ballsLeft||!wicketsLeft)battingChance=0;
+  else{
+   const requiredRate=needed/(ballsLeft/6),wicketFactor=(wicketsLeft/wicketLimit-.5)*1.15,timeFactor=(ballsLeft/(totalOvers*6)-.5)*.25;
+   const margin=2.4*(baselineRate-requiredRate)/baselineRate+wicketFactor+timeFactor;
+   battingChance=1/(1+Math.exp(-Math.max(-4,Math.min(4,margin))));
+  }
+ }
+ battingChance=Math.max(.02,Math.min(.98,battingChance));
+ const battingTeam=inn.batting;
+ return {a:battingTeam===teamA?battingChance:1-battingChance,b:battingTeam===teamB?battingChance:1-battingChance,message:''};
+}
+function renderWinningPrediction(m,inn){
+ const prediction=winningPrediction(m,inn),aPercent=Math.round(prediction.a*100),bPercent=100-aPercent;
+ const nameA=team(m.teams[0])?.name||'Team A',nameB=team(m.teams[1])?.name||'Team B';
+ const favored=aPercent===50?null:aPercent>bPercent?nameA:nameB,favoredPercent=Math.max(aPercent,bPercent);
+ $('winPredictionHeadline').textContent=prediction.message||(favored?`${favored} favored (${favoredPercent}%)`:'Too close to call');
+ $('winPredictionTeams').textContent=`${nameA} ${aPercent}% • ${nameB} ${bPercent}%`;
+ $('winPredictionA').style.flexBasis=`${aPercent}%`;$('winPredictionB').style.flexBasis=`${bPercent}%`;
+ document.querySelector('.prediction-meter').setAttribute('aria-valuenow',String(aPercent));
+}
 async function finishMatch(){const m=activeMatch();if(!m||m.status!=='live')return;if(!confirm('Finish this match now?'))return;completeMatchState(m);await save();page('history')}
 function renderScorer(){
  const m=activeMatch();if(!m)return;
@@ -557,6 +621,7 @@ function renderScorer(){
  const ballsLeft=m.overs?Math.max(0,m.overs*6-inn.legal):null;
  $('targetText').textContent=chasing?(m.status==='completed'&&needed===0?`Target ${target} reached`:`Target ${target} • Need ${needed}${ballsLeft===null?'':` from ${ballsLeft} balls`}`):'';
  $('requiredRunRate').textContent=chasing&&m.status==='live'&&ballsLeft!==null&&ballsLeft>0?`Required run rate ${(needed/(ballsLeft/6)).toFixed(2)}`:'';
+ renderWinningPrediction(m,inn);
  const lineup=inn.lineup?.length?inn.lineup:playersFor(inn.batting).map(p=>p.id);
  const batPlayers=lineup.map(id=>state.players.find(p=>p.id===id)).filter(p=>p&&(!inn.batters[p.id]?.out||p.id===m.striker||p.id===m.non)),bowlPlayers=playersFor(inn.bowling);
  const eligibleBatters=lineup.filter(id=>!inn.batters[id]?.out);
