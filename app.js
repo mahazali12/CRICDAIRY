@@ -51,7 +51,7 @@ function team(id){return state.teams.find(t=>t.id===id)}
 function teamTypeLabel(item){return item?.type==='club'?'Club team':'Other team'}
 function playersFor(teamId){return state.players.filter(p=>p.teamId===teamId)}
 function modeLabel(mode){return ({standard:'Standard (full team)',custom:'Custom players per side'})[mode]||'Standard (full team)'}
-function addTeam(name,type='other'){if(!name.trim())return;state.teams.push({id:uid(),name:name.trim(),type});save()}
+function addTeam(name,type='other'){if(!name.trim())return;state.teams.push({id:uid(),name:name.trim(),type,captainId:''});save()}
 function init(){
  state=window.__initialState||null;
  history.replaceState({cricdairyApp:true,screen:'home'},'',location.href);
@@ -61,7 +61,7 @@ function init(){
 function normalizeState(data){
  const defaults=Store.defaults();
  const normalized={
-  teams:Array.isArray(data?.teams)?data.teams:defaults.teams,
+  teams:(Array.isArray(data?.teams)?data.teams:defaults.teams).map(item=>({...item,captainId:item.captainId||''})),
   players:(Array.isArray(data?.players)?data.players:defaults.players).map(p=>({...p,photo:typeof p.photo==='string'?p.photo:'',stats:p.stats||{runs:0,balls:0,wickets:0,matches:0}})),
   matches:Array.isArray(data?.matches)?data.matches:defaults.matches,
   tournaments:(Array.isArray(data?.tournaments)?data.tournaments:defaults.tournaments).map(series=>({...series,teamIds:Array.isArray(series.teamIds)?series.teamIds:[],matchCount:Math.max(1,Number(series.matchCount)||1)})),
@@ -87,8 +87,9 @@ function normalizeState(data){
   })):[newInnings(teams[0]||'',teams[1]||'',lineups[teams[0]]||[],m.mode||'standard')];
   const reserves=m.reserves&&typeof m.reserves==='object'?m.reserves:{};
   const wicketkeepers=m.wicketkeepers&&typeof m.wicketkeepers==='object'?m.wicketkeepers:{};
+  const captains=m.captains&&typeof m.captains==='object'?m.captains:{[teams[0]]:'',[teams[1]]:''};
   const playerCounts=m.playerCounts&&typeof m.playerCounts==='object'?m.playerCounts:{[teams[0]]:lineups[teams[0]]?.length||1,[teams[1]]:lineups[teams[1]]?.length||1};
-  return {...m,teams,lineups,reserves,wicketkeepers,playerCounts,mode:m.mode==='custom'?'custom':'standard',seriesId:m.seriesId||'',innings,current:Number.isInteger(m.current)?m.current:0,inningsBreak:Boolean(m.inningsBreak),pendingBowler:Boolean(m.pendingBowler),pendingBatterSlot:['striker','non'].includes(m.pendingBatterSlot)?m.pendingBatterSlot:''};
+  return {...m,teams,lineups,reserves,wicketkeepers,captains,playerCounts,mode:m.mode==='custom'?'custom':'standard',seriesId:m.seriesId||'',innings,current:Number.isInteger(m.current)?m.current:0,inningsBreak:Boolean(m.inningsBreak),pendingBowler:Boolean(m.pendingBowler),pendingBatterSlot:['striker','non'].includes(m.pendingBatterSlot)?m.pendingBatterSlot:''};
  });
  return normalized;
 }
@@ -154,6 +155,7 @@ function setup(){
  $('matchWKTeam').onchange=()=>renderMatchSubstitutionControls(activeMatch());
  $('matchSeries').onchange=()=>{fillTeamSelects();updateMatchModeInfo();renderPlayingPlayerSelectors()};
  $('playerTeam').onchange=renderTeams;
+ $('teamCaptainSelect').onchange=()=>setTeamCaptain($('playerTeam').value,$('teamCaptainSelect').value);
  $('undoBtn').onclick=undo;$('swapBtn').onclick=()=>{const m=activeMatch();if(m&&m.non){[m.striker,m.non]=[m.non,m.striker];save()}};
  $('changeBowler').onclick=()=>{const m=activeMatch();if(!m)return;const v=$('pickBowler').value;if(v){m.bowler=v;save()}};
  $('pickStriker').onchange=e=>{const m=activeMatch();if(m){if(e.target.value&&e.target.value===m.non){toast('Choose a different non-striker');renderScorer();return}m.striker=e.target.value;save()}};
@@ -284,8 +286,8 @@ function renderPlayingPlayerSelectors(){
  $('playingTeamBName').textContent=team(setup.b)?.name||'Team B';
  const selectedA=Array.isArray(saved?.playersA)?saved.playersA:rosterA.slice(0,countA).map(p=>p.id);
  const selectedB=Array.isArray(saved?.playersB)?saved.playersB:rosterB.slice(0,countB).map(p=>p.id);
- $('playersA').innerHTML=rosterA.length?rosterA.map(p=>`<label class="player-option"><input type="checkbox" class="select-A" value="${esc(p.id)}" ${selectedA.includes(p.id)?'checked':''}>${esc(p.name)}${p.role==='Wicketkeeper'?' <small class="wk-badge">WK</small>':''}</label>`).join(''):'<p class="muted">Add players to this team first.</p>';
- $('playersB').innerHTML=rosterB.length?rosterB.map(p=>`<label class="player-option"><input type="checkbox" class="select-B" value="${esc(p.id)}" ${selectedB.includes(p.id)?'checked':''}>${esc(p.name)}${p.role==='Wicketkeeper'?' <small class="wk-badge">WK</small>':''}</label>`).join(''):'<p class="muted">Add players to this team first.</p>';
+ $('playersA').innerHTML=rosterA.length?rosterA.map(p=>`<label class="player-option"><input type="checkbox" class="select-A" value="${esc(p.id)}" ${selectedA.includes(p.id)?'checked':''}>${esc(p.name)}${team(setup.a)?.captainId===p.id?' <small class="captain-badge">C</small>':''}${p.role==='Wicketkeeper'?' <small class="wk-badge">WK</small>':''}</label>`).join(''):'<p class="muted">Add players to this team first.</p>';
+ $('playersB').innerHTML=rosterB.length?rosterB.map(p=>`<label class="player-option"><input type="checkbox" class="select-B" value="${esc(p.id)}" ${selectedB.includes(p.id)?'checked':''}>${esc(p.name)}${team(setup.b)?.captainId===p.id?' <small class="captain-badge">C</small>':''}${p.role==='Wicketkeeper'?' <small class="wk-badge">WK</small>':''}</label>`).join(''):'<p class="muted">Add players to this team first.</p>';
  document.querySelectorAll('.select-A,.select-B').forEach(input=>input.onchange=persistPlayingDraft);
  fillReserveSelect('A',selectedA,saved?.reserveA);
  fillReserveSelect('B',selectedB,saved?.reserveB);
@@ -534,7 +536,8 @@ function startMatch(){
  const reserves={ [a]:availableA.some(p=>p.id===reserveAId)&&!lineupA.includes(reserveAId)?reserveAId:'', [b]:availableB.some(p=>p.id===reserveBId)&&!lineupB.includes(reserveBId)?reserveBId:'' };
  const wicketkeepers={};
  [a,b].forEach(teamId=>{const lineup=lineups[teamId];wicketkeepers[teamId]=lineup.map(id=>state.players.find(p=>p.id===id&&p.role==='Wicketkeeper')?.id).find(Boolean)||null});
- const m={id:uid(),title:$('matchTitle').value.trim()||`${team(a).name} vs ${team(b).name}`,format:matchFormat,mode,overs,venue:$('matchVenue').value.trim(),date:$('matchDate').value,teams:[a,b],lineups,reserves,playerCounts:{[a]:countA,[b]:countB},wicketkeepers,seriesId:$('matchSeries').value,toss:{winner,decision:$('tossDecision').value},innings:[first],current:0,status:'live',created:Date.now(),superOver:false,striker:firstLineup[0]||null,non:firstLineup[1]||null,bowler:null,pendingBowler:false,pendingBatterSlot:''};
+ const captains={ [a]:team(a)?.captainId&&lineupA.includes(team(a).captainId)?team(a).captainId:'', [b]:team(b)?.captainId&&lineupB.includes(team(b).captainId)?team(b).captainId:'' };
+ const m={id:uid(),title:$('matchTitle').value.trim()||`${team(a).name} vs ${team(b).name}`,format:matchFormat,mode,overs,venue:$('matchVenue').value.trim(),date:$('matchDate').value,teams:[a,b],lineups,reserves,playerCounts:{[a]:countA,[b]:countB},wicketkeepers,captains,seriesId:$('matchSeries').value,toss:{winner,decision:$('tossDecision').value},innings:[first],current:0,status:'live',created:Date.now(),superOver:false,striker:firstLineup[0]||null,non:firstLineup[1]||null,bowler:null,pendingBowler:false,pendingBatterSlot:''};
  state.matches.unshift(m);currentId=m.id;undoStack=[];save();page('scorer');toast('Match started');
 }
 function newInnings(bat,bowl,lineup=[],mode='standard'){return {batting:bat,bowling:bowl,lineup:[...lineup],wicketLimit:mode==='standard'?Math.max(1,lineup.length-1):lineup.length,runs:0,wickets:0,legal:0,balls:[],batters:{},bowlers:{},extras:{wide:0,noball:0,bye:0,legbye:0,penalty:0},fow:[],partnership:0}}
@@ -834,7 +837,7 @@ function renderScorer(){
  updateWicketFielderControls();
  $('outBatter').innerHTML=`<option value="striker">${esc(playerName(m.striker))} out</option>${m.non?`<option value="non">${esc(playerName(m.non))} out</option>`:''}`;
  const bs=inn.batters[m.striker]||{runs:0,balls:0},ns=inn.batters[m.non]||{runs:0,balls:0},bo=inn.bowlers[m.bowler]||{runs:0,wickets:0,legal:0};
- $('strikerName').textContent=playerName(m.striker);$('nonName').textContent=playerName(m.non);$('bowlerName').textContent=playerName(m.bowler);
+ $('strikerName').textContent=playerNameWithCaptain(m.striker,m);$('nonName').textContent=playerNameWithCaptain(m.non,m);$('bowlerName').textContent=playerNameWithCaptain(m.bowler,m);
  $('strikerStats').textContent=`${bs.runs} (${bs.balls})`;$('nonStats').textContent=`${ns.runs} (${ns.balls})`;$('bowlerStats').textContent=`${bo.wickets}-${bo.runs} • ${Math.floor(bo.legal/6)}.${bo.legal%6}`;
  $('overLog').innerHTML=inn.balls.length?inn.balls.map((x,i)=>`<span class="over-pill">${esc(x.text)}</span>${(i+1)%6===0?'<br>':''}`).join(''):'No deliveries yet.';
  renderLiveScoringSummary(m,inn);
@@ -978,6 +981,13 @@ async function shareMatch(){
 function fillPlayerPick(id,arr,selected){$(id).innerHTML='<option value="">Select player</option>'+arr.map(p=>`<option value="${p.id}" ${p.id===selected?'selected':''}>${esc(p.name)}</option>`).join('')}
 function playerName(id){return state.players.find(p=>p.id===id)?.name||'Not selected'}
 function playerRoleLabel(role){return role==='Wicketkeeper'?'Wicketkeeper (WK)':role||''}
+function playerNameWithCaptain(playerId,match){
+ const name=playerName(playerId);
+ if(!match||!playerId)return name;
+ const teamId=match.teams.find(id=>match.lineups?.[id]?.includes(playerId));
+ const captainId=match.captains?.[teamId]||team(teamId)?.captainId||'';
+ return captainId===playerId?`${name} (C)`:name;
+}
 function resizeImage(file,maxSize){
  return new Promise(resolve=>{
   if(!file||!file.type.startsWith('image/')){resolve('');return}
@@ -1381,22 +1391,35 @@ function renderTeamProfile(){
   const scores=(match.innings||[]).map(inn=>`${esc(team(inn.batting)?.name||'Team')}: ${inn.runs}/${inn.wickets}`).join(' • ')||'No score yet';
   return `<tr><td>${esc(match.title||'Match')}</td><td>${esc(match.date||'—')}</td><td>${scores}</td><td>${esc(match.status||'')}</td><td>${esc(match.result||'—')}</td></tr>`;
  }).join('');
- const roster=playersFor(selectedTeam.id).map(player=>`<button type="button" class="player-stat-link" data-player-profile="${esc(player.id)}">${esc(player.name)}</button> <small>${esc(playerRoleLabel(player.role))}</small>`).join(' • ')||'<span class="muted">No players on this team yet.</span>';
+ const roster=playersFor(selectedTeam.id).map(player=>`<button type="button" class="player-stat-link" data-player-profile="${esc(player.id)}">${esc(player.name)}${selectedTeam.captainId===player.id?' <span class="captain-badge">C</span>':''}</button> <small>${esc(playerRoleLabel(player.role))}${selectedTeam.captainId===player.id?' • Captain':''}</small>`).join(' • ')||'<span class="muted">No players on this team yet.</span>';
  $('teamProfileTitle').textContent=selectedTeam.name;
  $('teamProfileContent').innerHTML=`<p class="eyebrow">${teamTypeLabel(selectedTeam)}</p><div class="profile-stat-grid"><div class="stat"><small>Played / won / lost</small><strong>${record.played} / ${record.wins} / ${record.losses}</strong></div><div class="stat"><small>Tied / no result</small><strong>${record.ties} / ${record.noResults}</strong></div><div class="stat"><small>Points / win percentage</small><strong>${record.wins*2+record.ties} / ${record.played?((record.wins+record.ties/2)*100/record.played).toFixed(1):'0.0'}%</strong></div><div class="stat"><small>Runs for / against</small><strong>${record.runsFor} / ${record.runsAgainst}</strong></div><div class="stat"><small>Batting / bowling run rate</small><strong>${battingRate} / ${bowlingRate}</strong></div><div class="stat"><small>Highest innings</small><strong>${record.highest}</strong></div></div><div class="panel team-roster"><h3>Players</h3><div>${roster}</div></div><div class="panel table-wrap"><h3>Match history</h3><table><thead><tr><th>Match</th><th>Date</th><th>Scores</th><th>Status</th><th>Result</th></tr></thead><tbody>${matches||'<tr><td colspan="5">No match records yet.</td></tr>'}</tbody></table></div>`;
  document.querySelectorAll('#teamProfileContent [data-player-profile]').forEach(button=>button.onclick=()=>{currentPlayerId=button.dataset.playerProfile;page('playerProfile')});
 }
+ function setTeamCaptain(teamId,playerId){
+  const selectedTeam=team(teamId);
+  if(!selectedTeam)return;
+  if(playerId&&!playersFor(teamId).some(player=>player.id===playerId))return toast('Select a player from this team or club');
+  selectedTeam.captainId=playerId||'';
+  save();renderTeams();toast(playerId?`${playerName(playerId)} set as captain`:'Captain removed');
+ }
 function renderTeams(){
- $('teamList').innerHTML=state.teams.map(t=>`<div class="player-row"><div><button type="button" class="team-stat-link" data-team-profile="${esc(t.id)}">${esc(t.name)}</button><small class="team-type-label">${teamTypeLabel(t)}</small></div><small>${playersFor(t.id).length} players</small></div>`).join('')||'<p class="muted">No teams added.</p>';
+ $('teamList').innerHTML=state.teams.map(t=>`<div class="player-row"><div><button type="button" class="team-stat-link" data-team-profile="${esc(t.id)}">${esc(t.name)}</button><small class="team-type-label">${teamTypeLabel(t)}${t.captainId?' • Captain: '+esc(playerName(t.captainId)):''}</small></div><small>${playersFor(t.id).length} players</small></div>`).join('')||'<p class="muted">No teams added.</p>';
  document.querySelectorAll('#teamList [data-team-profile]').forEach(button=>button.onclick=()=>{currentTeamId=button.dataset.teamProfile;page('teamProfile')});
  const selectedTeamId=$('playerTeam')?.value;
  const selectedTeam=team(selectedTeamId);
  const teamPlayers=selectedTeamId?playersFor(selectedTeamId):[];
  if($('teamPlayerListHeading'))$('teamPlayerListHeading').textContent=selectedTeam?`Players for ${selectedTeam.name}`:'Players';
+ const captainSelect=$('teamCaptainSelect');
+ if(captainSelect){
+  captainSelect.innerHTML='<option value="">No captain selected</option>'+teamPlayers.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+  captainSelect.value=selectedTeam?.captainId&&teamPlayers.some(p=>p.id===selectedTeam.captainId)?selectedTeam.captainId:'';
+ }
  $('playerList').innerHTML=teamPlayers.map(p=>{
   const initial=(p.name?.trim()[0]||'P').toUpperCase();
   const avatar=p.photo?`<img src="${p.photo}" alt="${esc(p.name)}">`:`<span class="player-avatar-fallback">${esc(initial)}</span>`;
-  return `<div class="player-row editable-player"><div class="player-main">${avatar}<div><b>${esc(p.name)}</b><small>${esc(team(p.teamId)?.name||'')} • ${esc(playerRoleLabel(p.role))}</small></div></div><div class="player-photo-actions"><button type="button" class="ghost player-photo-change" data-player-id="${p.id}">Change photo</button><button type="button" class="ghost player-photo-remove" data-player-id="${p.id}" ${p.photo?'':'disabled'}>Remove</button><input class="player-photo-input" type="file" accept="image/*" data-player-id="${p.id}" hidden></div></div>`;
+  const captain=selectedTeam?.captainId===p.id;
+  return `<div class="player-row editable-player"><div class="player-main">${avatar}<div><b>${esc(p.name)}${captain?' <span class="captain-badge">C</span>':''}</b><small>${esc(team(p.teamId)?.name||'')} • ${esc(playerRoleLabel(p.role))}${captain?' • Captain':''}</small></div></div><div class="player-photo-actions"><button type="button" class="ghost player-photo-change" data-player-id="${p.id}">Change photo</button><button type="button" class="ghost player-photo-remove" data-player-id="${p.id}" ${p.photo?'':'disabled'}>Remove</button><input class="player-photo-input" type="file" accept="image/*" data-player-id="${p.id}" hidden></div></div>`;
  }).join('')||(selectedTeamId?`<p class="muted">No players added for ${esc(selectedTeam?.name||'this team')} yet.</p>`:'<p class="muted">Select a team or club first.</p>');
  document.querySelectorAll('.player-photo-change').forEach(button=>{
   button.onclick=()=>document.querySelector(`.player-photo-input[data-player-id="${button.dataset.playerId}"]`)?.click();

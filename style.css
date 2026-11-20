@@ -69,6 +69,7 @@
 .reserve-label{display:block;margin:10px 0 5px!important;color:var(--muted);font-size:12px}
 .reserve-label+select{width:100%}
 .team-player-list-heading{margin-top:18px!important;margin-bottom:8px!important}
+.captain-badge{display:inline-grid;place-items:center;min-width:21px;height:21px;margin-left:4px;padding:0 5px;border-radius:50%;background:#d2a83c;color:#241a00;font-size:11px;font-weight:900;vertical-align:middle}
 .match-player-panel{margin:12px 0}
 .match-player-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end}
 .match-player-fields label{min-width:0}
