@@ -51,9 +51,10 @@ CRICKET SCORING UPDATE
 - Byes and leg-byes add the selected extras and count as legal balls. A chase ends automatically when the target is reached.
 - Extra deliveries include an optional manual strike-change control. During a match, choose an innings in the scorecard selector to review that innings' batters, dismissals and bowling figures.
 - The live scorer shows over-by-over results without the commentary panel, and the in-match scorecard does not display the profile picture.
-- On phone screens, the live score, run rate, target, recent balls and current batting/bowling figures sit above a fixed scoring tray.
+- On phone screens, the live score, current run rate, chase required run rate, target, recent balls and current batting/bowling figures sit above a fixed scoring tray. Run rates use the match's legal-ball count; wides and no-balls do not consume balls, and wides do not add batter runs or balls faced.
+- Match bowling figures show that innings' average, economy and strike rate. Undo, Swap, End innings and Finish match sit below the scoring buttons.
 - The live score includes a clearly labeled estimated win prediction based on score, overs and wickets; Test Match prediction is unavailable.
-- In-match player controls are tucked into a collapsed Manage players section. It supports replacing an unused lineup player and editing a player's name or role without losing match statistics.
+- In-match player controls are in a collapsed Manage players section. It supports replacing an unused lineup player and editing a player's name or role without losing match statistics.
 - Player of the Match is selected automatically by batting runs plus 20 points per credited bowling wicket (runs break ties).
 - This starter is not a certified laws engine; review scorecards, especially run-outs and edge-case dismissals, before using it for official tournament records.
 

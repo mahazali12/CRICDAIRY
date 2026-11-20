@@ -41,7 +41,6 @@ function page(p,recordHistory=true){
  $('home').classList.toggle('hidden',p!=='home');
  $('appHeader').classList.toggle('hidden',p==='home');
  document.body.classList.toggle('scoring-screen',p==='scorer');
- if(p==='scorer'){$('scorer').classList.remove('more-controls-open');if($('moreControls')){$('moreControls').textContent='More';$('moreControls').setAttribute('aria-expanded','false')}}
  if(p==='scorer')renderScorer();
  if(p==='playerProfile')renderPlayerProfile();
  if(p==='teamStats')renderTeamStats();
@@ -91,15 +90,6 @@ function normalizeState(data){
  return normalized;
 }
 function setup(){
- const moreButton=document.createElement('button');
- moreButton.type='button';moreButton.id='moreControls';moreButton.className='ghost';moreButton.textContent='More';moreButton.setAttribute('aria-expanded','false');
- const scoringActions=$('endInnings').parentElement,matchActions=document.querySelector('.scoring-layout>.panel:last-child .button-grid');
- scoringActions.insertBefore(moreButton,$('endInnings'));
- matchActions.appendChild($('endInnings'));scoringActions.appendChild($('finishMatch'));
- moreButton.onclick=()=>{
-  const open=$('scorer').classList.toggle('more-controls-open');
-  moreButton.textContent=open?'Less':'More';moreButton.setAttribute('aria-expanded',String(open));
- };
  $('saveProfile').onclick=saveProfile;
  $('saveDisplayPhoto').onclick=saveDisplayPhoto;
  $('resetDisplayPhoto').onclick=()=>{state.settings.displayPhoto='./assets/app-display.jpg';$('displayPhotoInput').value='';save();toast('Original display picture restored')};
@@ -628,10 +618,20 @@ function renderLiveScoringSummary(m,inn){
  const bowlerIds=[m.bowler,...Object.keys(inn.bowlers||{})].filter((id,index,all)=>id&&all.indexOf(id)===index);
  const bowlingRows=bowlerIds.map(id=>{
   const stats=inn.bowlers[id]||{legal:0,maidens:0,runs:0,wickets:0,wides:0,noballs:0};
+  const figures=bowlingFigures(stats);
   const dots=(inn.balls||[]).filter(ball=>ball.bowlerId===id&&ball.legal&&Number(ball.total)===0).length;
-  return `<tr><td>${esc(playerName(id))}${id===m.bowler?' *':''}</td><td>${Math.floor(stats.legal/6)}.${stats.legal%6}</td><td>${stats.maidens||0}</td><td>${stats.runs||0}</td><td>${stats.wickets||0}</td><td>${stats.legal?(stats.runs/(stats.legal/6)).toFixed(1):'0.0'}</td><td>${dots}</td><td>${stats.wides||0}</td><td>${stats.noballs||0}</td></tr>`;
+  return `<tr><td>${esc(playerName(id))}${id===m.bowler?' *':''}</td><td>${figures.overs}</td><td>${stats.maidens||0}</td><td>${stats.runs||0}</td><td>${stats.wickets||0}</td><td>${figures.average}</td><td>${figures.economy}</td><td>${figures.strike}</td><td>${dots}</td><td>${stats.wides||0}</td><td>${stats.noballs||0}</td></tr>`;
  }).join('');
- $('liveBowlingTable').innerHTML=`<table><thead><tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Econ</th><th>D</th><th>WD</th><th>NB</th></tr></thead><tbody>${bowlingRows||'<tr><td colspan="9">No bowling data yet</td></tr>'}</tbody></table>`;
+ $('liveBowlingTable').innerHTML=`<table><thead><tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Avg</th><th>Econ</th><th>SR</th><th>D</th><th>WD</th><th>NB</th></tr></thead><tbody>${bowlingRows||'<tr><td colspan="11">No bowling data yet</td></tr>'}</tbody></table>`;
+}
+function bowlingFigures(stats){
+ const legal=Number(stats?.legal)||0,runs=Number(stats?.runs)||0,wickets=Number(stats?.wickets)||0;
+ return {
+  overs:`${Math.floor(legal/6)}.${legal%6}`,
+  average:wickets?(runs/wickets).toFixed(2):'—',
+  economy:legal?(runs/(legal/6)).toFixed(2):'0.00',
+  strike:wickets?(legal/wickets).toFixed(2):'—'
+ };
 }
 async function finishMatch(){const m=activeMatch();if(!m||m.status!=='live')return;if(!confirm('Finish this match now?'))return;completeMatchState(m);await save();page('history')}
 function renderScorer(){
@@ -744,7 +744,7 @@ async function changePlayerPhoto(id,file){
  if(!player)return;
  player.photo=photo;save();toast('Player photo updated');
 }
-function renderScorecard(m,inn){const rows=Object.entries(inn.batters).map(([id,s])=>`<tr><td>${esc(playerName(id))}</td><td>${s.runs}</td><td>${s.balls}</td><td>${s.fours}</td><td>${s.sixes}</td><td>${s.balls?(s.runs/s.balls*100).toFixed(1):'0.0'}</td><td>${esc(s.dismissal||'not out')}</td></tr>`).join('');const br=Object.entries(inn.bowlers).map(([id,s])=>`<tr><td>${esc(playerName(id))}</td><td>${Math.floor(s.legal/6)}.${s.legal%6}</td><td>${s.maidens}</td><td>${s.runs}</td><td>${s.wickets}</td><td>${s.legal?(s.runs/(s.legal/6)).toFixed(2):'0.00'}</td></tr>`).join('');$('scorecard').innerHTML=`<div class="report-brand"><img src="${state.settings.profilePhoto||''}" onerror="this.style.display='none'" alt=""><div><b>CRICDAIRY</b><div>${esc(state.settings.profileName||'RAZI SHAH')}</div></div></div><h3>${esc(team(inn.batting)?.name||'Batting')} — ${inn.runs}/${inn.wickets} (${Math.floor(inn.legal/6)}.${inn.legal%6} overs)</h3><div class="table-wrap"><table><thead><tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th><th>Dismissal</th></tr></thead><tbody>${rows||'<tr><td colspan="7">No batting data yet</td></tr>'}</tbody></table></div><h3>Bowling</h3><div class="table-wrap"><table><thead><tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th> Econ</th></tr></thead><tbody>${br||'<tr><td colspan="6">No bowling data yet</td></tr>'}</tbody></table></div><p class="hint">Extras: ${Object.entries(inn.extras).map(([k,v])=>`${k} ${v}`).join(' • ')} • Fall of wickets: ${inn.fow.map(x=>`${x.w}-${x.r} (${x.overs})`).join(', ')||'—'}</p>`}
+function renderScorecard(m,inn){const rows=Object.entries(inn.batters).map(([id,s])=>`<tr><td>${esc(playerName(id))}</td><td>${s.runs}</td><td>${s.balls}</td><td>${s.fours}</td><td>${s.sixes}</td><td>${s.balls?(s.runs/s.balls*100).toFixed(1):'0.0'}</td><td>${esc(s.dismissal||'not out')}</td></tr>`).join('');const br=Object.entries(inn.bowlers).map(([id,s])=>{const figures=bowlingFigures(s);return `<tr><td>${esc(playerName(id))}</td><td>${figures.overs}</td><td>${s.maidens||0}</td><td>${s.runs||0}</td><td>${s.wickets||0}</td><td>${figures.average}</td><td>${figures.economy}</td><td>${figures.strike}</td></tr>`}).join('');$('scorecard').innerHTML=`<div class="report-brand"><img src="${state.settings.profilePhoto||''}" onerror="this.style.display='none'" alt=""><div><b>CRICDAIRY</b><div>${esc(state.settings.profileName||'RAZI SHAH')}</div></div></div><h3>${esc(team(inn.batting)?.name||'Batting')} — ${inn.runs}/${inn.wickets} (${Math.floor(inn.legal/6)}.${inn.legal%6} overs)</h3><div class="table-wrap"><table><thead><tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th><th>Dismissal</th></tr></thead><tbody>${rows||'<tr><td colspan="7">No batting data yet</td></tr>'}</tbody></table></div><h3>Bowling</h3><div class="table-wrap"><table><thead><tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Avg</th><th>Econ</th><th>SR</th></tr></thead><tbody>${br||'<tr><td colspan="8">No bowling data yet</td></tr>'}</tbody></table></div><p class="hint">Extras: ${Object.entries(inn.extras).map(([k,v])=>`${k} ${v}`).join(' • ')} • Fall of wickets: ${inn.fow.map(x=>`${x.w}-${x.r} (${x.overs})`).join(', ')||'—'}</p>`}
 function renderAll(){profileMarkup();fillTeamSelects();renderLauncher();renderTeams();renderPlayingPlayerSelectors();renderHistory();renderLive();renderTournaments();fillReportSelect();$('backupInfo').textContent=`${state.matches.length} matches • ${state.teams.length} teams • Auto-saved locally in this browser.`}
 function renderLauncher(){
  $('menuResumeMatch').classList.toggle('hidden',!state.matches.some(m=>m.status==='live'));
