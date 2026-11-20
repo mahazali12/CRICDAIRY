@@ -92,7 +92,7 @@
 @media(max-width:650px){.score-hero{align-items:flex-start;flex-direction:column}.target-box{text-align:left;width:100%}.win-prediction{min-width:0;max-width:none}.match-player-content{grid-template-columns:1fr}}
 
 #scorer.page.active{display:grid;grid-template-columns:minmax(120px,.7fr) minmax(0,1.3fr);gap:12px}
-#scorer>.section-head,#scorer>.innings-break,#scorer>.player-strip,#scorer>#matchPlayerPanel,#scorer>.scoring-layout>.panel:last-child,#scorer>.panel:last-child{grid-column:1/-1}
+#scorer>.section-head,#scorer>.innings-break,#scorer>.player-strip,#scorer>#nextPlayerPrompts,#scorer>#matchPlayerPanel,#scorer>.scoring-layout>.panel:last-child,#scorer>.panel:last-child{grid-column:1/-1}
 #scorer>.score-hero,#scorer>.scoring-layout{display:contents}
 #scorer>.score-hero>div:first-child{grid-column:1;grid-row:2;display:flex;flex-direction:column;justify-content:center;min-width:0;margin:0;padding:14px;background:linear-gradient(110deg,#0e4625,#102318);border:1px solid #28633b;border-radius:17px}
 #scorer>.score-hero .big-score{font-size:clamp(30px,5vw,48px);letter-spacing:-1px}
@@ -103,9 +103,16 @@
 
 .live-scoring-summary{display:none}
 .controls{grid-template-columns:repeat(4,minmax(0,1fr))}
+.next-player-prompts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.next-player-prompt{min-width:0;padding:14px;background:var(--panel2);border-radius:11px}
+.next-player-prompt h3{margin:0 0 10px}
+.next-player-prompt label{display:block;margin:10px 0;color:var(--muted);font-size:12px}
+.next-player-prompt button{width:100%}
+.wk-badge{display:inline-block;margin-left:6px;padding:2px 6px;border-radius:6px;background:#d2a83c;color:#241a00;font-size:10px;font-weight:800}
 @media(max-width:650px){
  body.scoring-screen #sidebar{display:none!important}
  #scorer.page.active{display:block;padding:0 12px calc(43vh + env(safe-area-inset-bottom));max-width:none}
+ .next-player-prompts{grid-template-columns:1fr;margin:10px 0}
  #scorer>.section-head{position:sticky;top:0;z-index:8;margin:0 -12px 10px;padding:10px 12px;background:#0b1522;border-bottom:1px solid var(--line)}
  #scorer>.section-head .eyebrow,#scorer>#matchMeta{display:none}
  #scorer>.section-head h1{font-size:17px}
