@@ -1275,14 +1275,26 @@ function renderTournaments(){
   const editMode=editingTournamentId===series.id;
   const editTeamOptions=state.teams.map(item=>`<label class="series-team-option"><input type="checkbox" class="edit-tournament-team-choice" value="${esc(item.id)}" ${teamIds.includes(item.id)?'checked':''}><span>${esc(item.name)}<small>${teamTypeLabel(item)}</small></span></label>`).join('');
   const editMarkup=editMode?`<div class="series-edit-form"><label>Series name<input id="editTournamentName" value="${esc(series.name)}" maxlength="80"></label><label>Number of matches<input id="editTournamentMatchCount" type="number" min="1" max="99" value="${matchCount}"></label><div class="series-edit-teams"><b>Teams / clubs</b><div class="tournament-team-picker">${editTeamOptions||'<p class="muted">Add teams or clubs first.</p>'}</div></div><div class="actions"><button class="primary" data-save-series="${esc(series.id)}">Save changes</button><button class="ghost" data-cancel-series="${esc(series.id)}">Cancel</button></div></div>`:'';
-  return `<div class="series-card"><div class="section-head"><div><b>🏆 ${esc(series.name)}</b><small>${progressText}</small><small>${teamIds.length} team${teamIds.length===1?'':'s'} / club${teamIds.length===1?'':'s'}: ${participantText}</small></div><div class="series-actions"><div class="series-record">${esc(recordText||'No results yet')}</div><div class="series-buttons"><button class="ghost" data-edit-series="${esc(series.id)}">${editMode?'Editing':'Edit series'}</button><button class="primary" data-start-series="${esc(series.id)}" ${canStart?'':'disabled'}>${matches.length>=matchCount?'Series complete':'Start match'}</button></div></div></div>${editMarkup}${matches.length?matches.map(m=>`<div class="series-match"><span>${esc(m.title)}</span><small>${esc(m.status)}${m.result?' • '+esc(m.result):''}</small><button class="ghost" data-open="${esc(m.id)}">Open</button></div>`).join(''):'<p class="muted">No matches linked yet.</p>'}</div>`;
+  return `<div class="series-card"><div class="section-head"><div><b>🏆 ${esc(series.name)}</b><small>${progressText}</small><small>${teamIds.length} team${teamIds.length===1?'':'s'} / club${teamIds.length===1?'':'s'}: ${participantText}</small></div><div class="series-actions"><div class="series-record">${esc(recordText||'No results yet')}</div><div class="series-buttons"><button class="ghost" data-edit-series="${esc(series.id)}">${editMode?'Editing':'Edit series'}</button><button class="danger ghost" data-delete-series="${esc(series.id)}">Delete series</button><button class="primary" data-start-series="${esc(series.id)}" ${canStart?'':'disabled'}>${matches.length>=matchCount?'Series complete':'Start match'}</button></div></div></div>${editMarkup}${matches.length?matches.map(m=>`<div class="series-match"><span>${esc(m.title)}</span><small>${esc(m.status)}${m.result?' • '+esc(m.result):''}</small><button class="ghost" data-open="${esc(m.id)}">Open</button></div>`).join(''):'<p class="muted">No matches linked yet.</p>'}</div>`;
  }).join('')||'<p class="muted">No series created yet.</p>';
  document.querySelectorAll('[data-start-series]').forEach(button=>button.onclick=()=>startSeriesMatch(button.dataset.startSeries));
  document.querySelectorAll('[data-edit-series]').forEach(button=>button.onclick=()=>{editingTournamentId=editingTournamentId===button.dataset.editSeries?null:button.dataset.editSeries;renderTournaments()});
+ document.querySelectorAll('[data-delete-series]').forEach(button=>button.onclick=()=>deleteTournament(button.dataset.deleteSeries));
  document.querySelectorAll('[data-save-series]').forEach(button=>button.onclick=()=>saveTournamentEdit(button.dataset.saveSeries));
  document.querySelectorAll('[data-cancel-series]').forEach(button=>button.onclick=()=>{editingTournamentId=null;renderTournaments()});
  bindCards();
  $('pointsTable').innerHTML='';
+}
+function deleteTournament(seriesId){
+ const series=state.tournaments.find(item=>item.id===seriesId);
+ if(!series)return toast('Series not found');
+ const linkedMatches=state.matches.filter(match=>match.seriesId===seriesId);
+ const matchText=linkedMatches.length?` ${linkedMatches.length} linked match${linkedMatches.length===1?'':'es'} will remain in history without this series.`:'';
+ if(!confirm(`Delete "${series.name}"?${matchText}`))return;
+ state.tournaments=state.tournaments.filter(item=>item.id!==seriesId);
+ linkedMatches.forEach(match=>{match.seriesId=''});
+ if(editingTournamentId===seriesId)editingTournamentId=null;
+ save();renderAll();fillTeamSelects();toast('Series deleted. Linked matches remain in history.');
 }
 function saveTournamentEdit(seriesId){
  const series=state.tournaments.find(item=>item.id===seriesId);
