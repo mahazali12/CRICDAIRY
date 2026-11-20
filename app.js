@@ -50,7 +50,7 @@ function activeMatch(){return state.matches.find(m=>m.id===currentId)}
 function team(id){return state.teams.find(t=>t.id===id)}
 function teamTypeLabel(item){return item?.type==='club'?'Club team':'Other team'}
 function playersFor(teamId){return state.players.filter(p=>p.teamId===teamId)}
-function modeLabel(mode){return ({standard:'Standard',single:'Single wicket',double:'Double wicket',triple:'Triple wicket',custom:'Custom players'})[mode]||'Standard'}
+function modeLabel(mode){return ({standard:'Standard (full team)',custom:'Custom players per side'})[mode]||'Standard (full team)'}
 function addTeam(name,type='other'){if(!name.trim())return;state.teams.push({id:uid(),name:name.trim(),type});save()}
 function init(){
  state=window.__initialState||null;
@@ -85,7 +85,10 @@ function normalizeState(data){
    lineup:Array.isArray(i.lineup)?i.lineup:(lineups[i.batting]||[]),
    wicketLimit:Number(i.wicketLimit)||Math.max(1,(lineups[i.batting]||[]).length-1)
   })):[newInnings(teams[0]||'',teams[1]||'',lineups[teams[0]]||[],m.mode||'standard')];
-  return {...m,teams,lineups,mode:m.mode||'standard',seriesId:m.seriesId||'',innings,current:Number.isInteger(m.current)?m.current:0,inningsBreak:Boolean(m.inningsBreak),pendingBowler:Boolean(m.pendingBowler),pendingBatterSlot:['striker','non'].includes(m.pendingBatterSlot)?m.pendingBatterSlot:''};
+  const reserves=m.reserves&&typeof m.reserves==='object'?m.reserves:{};
+  const wicketkeepers=m.wicketkeepers&&typeof m.wicketkeepers==='object'?m.wicketkeepers:{};
+  const playerCounts=m.playerCounts&&typeof m.playerCounts==='object'?m.playerCounts:{[teams[0]]:lineups[teams[0]]?.length||1,[teams[1]]:lineups[teams[1]]?.length||1};
+  return {...m,teams,lineups,reserves,wicketkeepers,playerCounts,mode:m.mode==='custom'?'custom':'standard',seriesId:m.seriesId||'',innings,current:Number.isInteger(m.current)?m.current:0,inningsBreak:Boolean(m.inningsBreak),pendingBowler:Boolean(m.pendingBowler),pendingBatterSlot:['striker','non'].includes(m.pendingBatterSlot)?m.pendingBatterSlot:''};
  });
  return normalized;
 }
@@ -145,6 +148,10 @@ function setup(){
  $('matchPlayerEditSelect').onchange=loadMatchPlayerEditForm;
  $('addMatchPlayer').onclick=addMatchPlayer;
  $('saveMatchPlayerEdit').onclick=saveMatchPlayerEdit;
+ $('saveMatchSubstitution').onclick=substituteMatchPlayer;
+ $('saveMatchWK').onclick=changeMatchWicketkeeper;
+ $('matchSubTeam').onchange=()=>renderMatchSubstitutionControls(activeMatch());
+ $('matchWKTeam').onchange=()=>renderMatchSubstitutionControls(activeMatch());
  $('matchSeries').onchange=()=>{fillTeamSelects();updateMatchModeInfo();renderPlayingPlayerSelectors()};
  $('playerTeam').onchange=renderTeams;
  $('undoBtn').onclick=undo;$('swapBtn').onclick=()=>{const m=activeMatch();if(m&&m.non){[m.striker,m.non]=[m.non,m.striker];save()}};
@@ -226,12 +233,15 @@ function updateTossWinnerOptions(preferred=$('tossWinner').value){
 function updateMatchModeInfo(){
  const mode=$('matchMode').value;
  const teamA=team($('teamA').value),teamB=team($('teamB').value);
- const fixed=mode==='single'?1:mode==='double'?2:mode==='triple'?3:null;
- if(fixed){$('countA').value=fixed;$('countB').value=fixed;$('countA').readOnly=true;$('countB').readOnly=true}
- else{$('countA').readOnly=false;$('countB').readOnly=false}
- document.querySelectorAll('[data-lineup-preset]').forEach(button=>{button.disabled=Boolean(fixed)});
+ $('countA').readOnly=false;$('countB').readOnly=false;
+ document.querySelectorAll('[data-lineup-preset]').forEach(button=>button.disabled=false);
  const countA=playersFor($('teamA').value).length,countB=playersFor($('teamB').value).length;
  $('matchModeHint').textContent=`${modeLabel(mode)}: select the players who will play. Squads have ${countA} and ${countB} players; each side can select up to 15.`;
+ const standard=mode==='standard';
+ if($('reserveALabel'))$('reserveALabel').hidden=!standard;
+ if($('reserveA'))$('reserveA').hidden=!standard;
+ if($('reserveBLabel'))$('reserveBLabel').hidden=!standard;
+ if($('reserveB'))$('reserveB').hidden=!standard;
 }
 function selectedPlayingIds(teamKey){
  return Array.from(document.querySelectorAll(`.select-${teamKey}:checked`)).map(input=>input.value);
@@ -240,10 +250,15 @@ function updatePlayingCounts(){
  $('selectedCountA').textContent=`${selectedPlayingIds('A').length} selected`;
  $('selectedCountB').textContent=`${selectedPlayingIds('B').length} selected`;
 }
+function fillReserveSelect(teamKey,lineupIds,selected=''){
+ const teamId=$(`team${teamKey}`).value;
+ const options=playersFor(teamId).filter(player=>!lineupIds.includes(player.id));
+ const select=$(`reserve${teamKey}`);
+ select.innerHTML='<option value="">No 12th man selected</option>'+options.map(player=>`<option value="${esc(player.id)}">${esc(player.name)}${player.role==='Wicketkeeper'?' (WK)':''}</option>`).join('');
+ select.value=options.some(player=>player.id===selected)?selected:'';
+}
 function setPlayingCountPreset(teamKey,count){
  const mode=$('matchMode').value;
- const fixed=mode==='single'?1:mode==='double'?2:mode==='triple'?3:null;
- if(fixed){toast(`${modeLabel(mode)} requires exactly ${fixed} player${fixed===1?'':'s'} per side`);return}
  const teamId=$(`team${teamKey}`).value;
  const squadSize=playersFor(teamId).length;
  const max=Math.min(15,squadSize);
@@ -259,10 +274,11 @@ function renderPlayingPlayerSelectors(){
  const setup=setupTeams(),draft=state.playingDraft,confirmed=state.playingSelection;
  const matchesSetup=value=>value&&value.teamA===setup.a&&value.teamB===setup.b&&value.mode===setup.mode;
  const saved=matchesSetup(draft)?draft:matchesSetup(confirmed)?confirmed:null;
- const required=setup.mode==='single'?1:setup.mode==='double'?2:setup.mode==='triple'?3:null;
  const rosterA=playersFor(setup.a),rosterB=playersFor(setup.b);
- const countA=Math.min(15,Math.max(1,required||Number(saved?.countA)||Math.min(11,rosterA.length||1)));
- const countB=Math.min(15,Math.max(1,required||Number(saved?.countB)||Math.min(11,rosterB.length||1)));
+ const defaultCountA=setup.mode==='standard'?Math.min(11,rosterA.length||1):Math.min(11,rosterA.length||1);
+ const defaultCountB=setup.mode==='standard'?Math.min(11,rosterB.length||1):Math.min(11,rosterB.length||1);
+ const countA=Math.min(15,Math.max(1,Number(saved?.countA)||defaultCountA));
+ const countB=Math.min(15,Math.max(1,Number(saved?.countB)||defaultCountB));
  $('countA').value=countA;$('countB').value=countB;
  $('playingTeamAName').textContent=team(setup.a)?.name||'Team A';
  $('playingTeamBName').textContent=team(setup.b)?.name||'Team B';
@@ -271,6 +287,9 @@ function renderPlayingPlayerSelectors(){
  $('playersA').innerHTML=rosterA.length?rosterA.map(p=>`<label class="player-option"><input type="checkbox" class="select-A" value="${esc(p.id)}" ${selectedA.includes(p.id)?'checked':''}>${esc(p.name)}${p.role==='Wicketkeeper'?' <small class="wk-badge">WK</small>':''}</label>`).join(''):'<p class="muted">Add players to this team first.</p>';
  $('playersB').innerHTML=rosterB.length?rosterB.map(p=>`<label class="player-option"><input type="checkbox" class="select-B" value="${esc(p.id)}" ${selectedB.includes(p.id)?'checked':''}>${esc(p.name)}${p.role==='Wicketkeeper'?' <small class="wk-badge">WK</small>':''}</label>`).join(''):'<p class="muted">Add players to this team first.</p>';
  document.querySelectorAll('.select-A,.select-B').forEach(input=>input.onchange=persistPlayingDraft);
+ fillReserveSelect('A',selectedA,saved?.reserveA);
+ fillReserveSelect('B',selectedB,saved?.reserveB);
+ $('reserveA').onchange=persistPlayingDraft;$('reserveB').onchange=persistPlayingDraft;
  updatePlayingCounts();
  $('selectionMessage').textContent=matchesSetup(confirmed)?'Playing players confirmed.':'Select the required players for both teams, then confirm.';
 }
@@ -285,7 +304,7 @@ function addPlayingPlayer(teamKey){
  const selected=teamPlayers.length<count;
  if(selected)teamPlayers.push(player.id);
  state.playingSelection=null;
- state.playingDraft={teamA:setup.a,teamB:setup.b,mode:setup.mode,countA:Number($('countA').value),countB:Number($('countB').value),playersA,playersB};
+ state.playingDraft={teamA:setup.a,teamB:setup.b,mode:setup.mode,countA:Number($('countA').value),countB:Number($('countB').value),playersA,playersB,reserveA:$('reserveA').value||'',reserveB:$('reserveB').value||''};
  $(`newPlayingPlayer${teamKey}`).value='';
  save();
  toast(selected?'Player added to the team and selected for the lineup.':'Player added to the team. Select them in the lineup; uncheck someone first if it is full.');
@@ -306,7 +325,7 @@ function persistPlayingDraft(){
  const setup=setupTeams(),playersA=selectedPlayingIds('A'),playersB=selectedPlayingIds('B');
  updatePlayingCounts();
  state.playingSelection=null;
- state.playingDraft={teamA:setup.a,teamB:setup.b,mode:setup.mode,countA:Number($('countA').value),countB:Number($('countB').value),playersA,playersB};
+ state.playingDraft={teamA:setup.a,teamB:setup.b,mode:setup.mode,countA:Number($('countA').value),countB:Number($('countB').value),playersA,playersB,reserveA:$('reserveA').value||'',reserveB:$('reserveB').value||''};
  $('selectionMessage').textContent='Player selection changed. Confirm players before starting the match.';
  const revision=++saveRevision;$('saveStatus').textContent='Saving…';
  Store.save(state).then(ok=>{if(revision===saveRevision)$('saveStatus').textContent=ok?'Saved on this device':'Save failed — export a backup'});
@@ -317,10 +336,8 @@ function savePlayingPlayers(){
  const availableA=playersFor(setup.a).length,availableB=playersFor(setup.b).length;
  if(!setup.a||!setup.b||setup.a===setup.b)return toast('Select two different teams first');
  if(!Number.isInteger(countA)||countA<1||countA>15||countA>availableA||!Number.isInteger(countB)||countB<1||countB>15||countB>availableB)return toast('Each team count must be between 1 and its available squad size (maximum 15).');
- const required=setup.mode==='single'?1:setup.mode==='double'?2:setup.mode==='triple'?3:null;
- if(required&&(countA!==required||countB!==required))return toast(`${modeLabel(setup.mode)} needs exactly ${required} player${required===1?'':'s'} per side.`);
  if(playersA.length!==countA||playersB.length!==countB)return toast('Select exactly the number of players shown for both teams.');
- state.playingSelection={teamA:setup.a,teamB:setup.b,mode:setup.mode,countA,countB,playersA,playersB};
+ state.playingSelection={teamA:setup.a,teamB:setup.b,mode:setup.mode,countA,countB,playersA,playersB,reserveA:$('reserveA').value||'',reserveB:$('reserveB').value||''};
  state.playingDraft=state.playingSelection;
  const revision=++saveRevision;$('saveStatus').textContent='Saving…';
  Store.save(state).then(ok=>{if(revision===saveRevision)$('saveStatus').textContent=ok?'Saved on this device':'Save failed — export a backup'});
@@ -356,14 +373,39 @@ function renderMatchPlayerControls(m){
  if(editPlayers.some(p=>p.id===selectedEdit))$('matchPlayerEditSelect').value=selectedEdit;
  else $('matchPlayerEditSelect').value=editPlayers[0]?.id||'';
  if(selectedEdit!==$('matchPlayerEditSelect').value)loadMatchPlayerEditForm();
- $('addMatchPlayer').disabled=replaceable.length===0;
+ const targetCount=Number(m.playerCounts?.[teamId])||lineup.length||1;
+ $('matchPlayerReplace').options[0].textContent=lineup.length<targetCount?'Add player to lineup':'Choose unused player to replace';
+ $('addMatchPlayer').disabled=false;
  $('saveMatchPlayerEdit').disabled=!$('matchPlayerEditSelect').value;
+ renderMatchSubstitutionControls(m);
 }
 function loadMatchPlayerEditForm(){
  const player=state.players.find(item=>item.id===$('matchPlayerEditSelect').value);
  $('matchPlayerEditName').value=player?.name||'';
  $('matchPlayerEditRole').value=player?.role||'All-rounder';
  $('saveMatchPlayerEdit').disabled=!player;
+}
+function renderMatchSubstitutionControls(m){
+ const subTeam=$('matchSubTeam'),wkTeam=$('matchWKTeam');
+ if(!subTeam||!wkTeam)return;
+ const selectedSub=subTeam.value,selectedWK=wkTeam.value;
+ subTeam.innerHTML=m.teams.map(id=>`<option value="${esc(id)}">${esc(team(id)?.name||'Team')}</option>`).join('');
+ wkTeam.innerHTML=subTeam.innerHTML;
+ subTeam.value=m.teams.includes(selectedSub)?selectedSub:getInnings(m).batting;
+ wkTeam.value=m.teams.includes(selectedWK)?selectedWK:getInnings(m).batting;
+ const teamId=subTeam.value,lineup=matchLineup(m,teamId),bench=playersFor(teamId).filter(p=>!lineup.includes(p.id));
+ const selectedInjured=$('matchInjuredPlayer').value;
+ $('matchInjuredPlayer').innerHTML='<option value="">Select player</option>'+lineup.map(id=>`<option value="${esc(id)}">${esc(playerName(id))}</option>`).join('');
+ if(lineup.includes(selectedInjured))$('matchInjuredPlayer').value=selectedInjured;
+ const reserveId=m.reserves?.[teamId];
+ const replacementOptions=bench.filter(p=>p.id!==reserveId).slice();
+ if(reserveId&&playersFor(teamId).some(p=>p.id===reserveId))replacementOptions.unshift(state.players.find(p=>p.id===reserveId));
+ $('matchReplacementPlayer').innerHTML='<option value="">Select replacement</option>'+replacementOptions.filter(Boolean).map(p=>`<option value="${esc(p.id)}">${esc(p.name)}${p.id===reserveId?' (12th man)':''}</option>`).join('');
+ const wkTeamId=wkTeam.value,wkLineup=matchLineup(m,wkTeamId);
+ const wkOptions=wkLineup.filter((id,index,all)=>all.indexOf(id)===index);
+ $('matchWKPlayer').innerHTML='<option value="">Select player</option>'+wkOptions.map(id=>{const p=state.players.find(item=>item.id===id);return p?`<option value="${esc(p.id)}">${esc(p.name)}${p.role==='Wicketkeeper'?' (WK)':''}</option>`:''}).join('');
+ const currentWK=m.wicketkeepers?.[wkTeamId];
+ if(wkOptions.includes(currentWK))$('matchWKPlayer').value=currentWK;
 }
 function saveMatchPlayerEdit(){
  const m=activeMatch(),teamId=$('matchPlayerTeam').value,player=state.players.find(item=>item.id===$('matchPlayerEditSelect').value&&item.teamId===teamId),name=$('matchPlayerEditName').value.trim();
@@ -373,15 +415,68 @@ function saveMatchPlayerEdit(){
  player.name=name;player.role=$('matchPlayerEditRole').value;
  save();renderScorer();toast('Player profile updated; match statistics are unchanged.');
 }
+function substituteMatchPlayer(){
+ const m=activeMatch();
+ if(!m||m.status!=='live')return toast('There is no live match to update');
+ const teamId=$('matchSubTeam').value,injuredId=$('matchInjuredPlayer').value,replacementId=$('matchReplacementPlayer').value,newName=$('matchReplacementName').value.trim();
+ if(!m.teams.includes(teamId))return toast('Select a team in this match');
+ if(!injuredId)return toast('Select the injured or replaced player');
+ if(replacementId&&newName)return toast('Select a replacement or enter a new name, not both');
+ const lineup=matchLineup(m,teamId),index=lineup.indexOf(injuredId);
+ if(index<0)return toast('That player is not in the active lineup');
+ let replacement;
+ if(replacementId){
+  replacement=state.players.find(p=>p.id===replacementId&&p.teamId===teamId);
+  if(!replacement||lineup.includes(replacement.id))return toast('Choose a replacement who is not already in the active lineup');
+ }else{
+  if(!newName)return toast('Select a replacement or enter a new player name');
+  replacement=playersFor(teamId).find(p=>p.name.trim().toLowerCase()===newName.toLowerCase());
+  if(!replacement){
+   replacement={id:uid(),name:newName,teamId,role:'Batter',photo:'',stats:{runs:0,balls:0,wickets:0,matches:0}};
+   state.players.push(replacement);
+  }
+  if(lineup.includes(replacement.id))return toast('That player is already in the active lineup');
+ }
+ lineup[index]=replacement.id;
+ m.lineups=m.lineups||{};m.lineups[teamId]=lineup;
+ if(m.reserves?.[teamId]===replacementId)m.reserves[teamId]=injuredId;
+ if(m.striker===injuredId)m.striker=replacement.id;
+ if(m.non===injuredId)m.non=replacement.id;
+ if(m.bowler===injuredId)m.bowler=replacement.id;
+ const currentInnings=getInnings(m);
+ if(Array.isArray(currentInnings.lineup)){
+  const inningsIndex=currentInnings.lineup.indexOf(injuredId);
+  if(inningsIndex>=0)currentInnings.lineup[inningsIndex]=replacement.id;
+ }
+ $('matchReplacementName').value='';$('matchReplacementPlayer').value='';
+ save();renderScorer();toast(`${playerName(injuredId)} replaced by ${replacement.name}`);
+}
+function changeMatchWicketkeeper(){
+ const m=activeMatch();
+ if(!m||m.status!=='live')return toast('There is no live match to update');
+ const teamId=$('matchWKTeam').value,playerId=$('matchWKPlayer').value;
+ if(!m.teams.includes(teamId))return toast('Select a team in this match');
+ if(!playerId)return toast('Select the new wicketkeeper');
+ const player=state.players.find(p=>p.id===playerId&&p.teamId===teamId);
+ if(!player)return toast('Select a player from this team');
+ const lineup=matchLineup(m,teamId);
+ if(!lineup.includes(playerId))return toast('Select an active player from the Playing XI');
+ const previousWK=m.wicketkeepers?.[teamId];
+ if(previousWK&&previousWK!==playerId&&state.players.some(p=>p.id===previousWK&&p.teamId===teamId)){const previous=state.players.find(p=>p.id===previousWK);if(previous.role==='Wicketkeeper')previous.role='All-rounder'}
+ player.role='Wicketkeeper';
+ m.wicketkeepers=m.wicketkeepers||{};m.wicketkeepers[teamId]=playerId;
+ save();renderScorer();toast(`${player.name} set as wicketkeeper`);
+}
 function addMatchPlayer(){
  const m=activeMatch();
  if(!m||m.status!=='live')return toast('There is no live match to update');
  const teamId=$('matchPlayerTeam').value,replaceId=$('matchPlayerReplace').value,existingId=$('matchExistingPlayer').value,name=$('matchNewPlayerName').value.trim();
  if(!m.teams.includes(teamId))return toast('Select a team in this match');
- if(!replaceId)return toast('Choose a player who has not entered the match to replace');
  if(existingId&&name)return toast('Select an existing player or type a new name, not both');
- const lineup=matchLineup(m,teamId),replaceIndex=lineup.indexOf(replaceId);
- if(replaceIndex<0||matchPlayerHasParticipated(m,replaceId))return toast('Choose an unused player from the selected team to replace');
+ const lineup=matchLineup(m,teamId),replaceIndex=replaceId?lineup.indexOf(replaceId):-1;
+ if(replaceId&&(replaceIndex<0||matchPlayerHasParticipated(m,replaceId)))return toast('Choose an unused player from the selected team to replace');
+ const targetCount=Number(m.playerCounts?.[teamId])||lineup.length||1;
+ if(!replaceId&&lineup.length>=targetCount)return toast(`This team already has ${targetCount} selected players. Choose an unused player to replace.`);
  let player;
  if(existingId){
   player=state.players.find(p=>p.id===existingId&&p.teamId===teamId);
@@ -395,7 +490,8 @@ function addMatchPlayer(){
    state.players.push(player);
   }
  }
- lineup[replaceIndex]=player.id;
+ if(replaceIndex>=0)lineup[replaceIndex]=player.id;
+ else lineup.push(player.id);
  m.lineups=m.lineups||{};
  m.lineups[teamId]=lineup;
  if(m.striker===replaceId)m.striker=player.id;
@@ -404,29 +500,41 @@ function addMatchPlayer(){
  const currentInnings=getInnings(m);
  if(currentInnings.batting===teamId){
   const inningsLineup=Array.isArray(currentInnings.lineup)?currentInnings.lineup:[];
-  const inningsIndex=inningsLineup.indexOf(replaceId);
-  if(inningsIndex>=0)inningsLineup[inningsIndex]=player.id;
-  else currentInnings.lineup=lineup.slice();
+  if(replaceId){
+   const inningsIndex=inningsLineup.indexOf(replaceId);
+   if(inningsIndex>=0)inningsLineup[inningsIndex]=player.id;
+   else currentInnings.lineup=lineup.slice();
+  }else if(!inningsLineup.includes(player.id)){
+   inningsLineup.push(player.id);currentInnings.lineup=inningsLineup;
+  }
  }
  $('matchNewPlayerName').value='';$('matchExistingPlayer').value='';
- save();renderScorer();toast(`${player.name} replaced ${playerName(replaceId)} in ${team(teamId)?.name||'the team'}'s lineup.`);
+ save();renderScorer();toast(replaceId?`${player.name} replaced ${playerName(replaceId)} in ${team(teamId)?.name||'the team'}'s lineup.`:`${player.name} added to ${team(teamId)?.name||'the team'}'s lineup.`);
 }
 function startMatch(){
  const a=$('teamA').value,b=$('teamB').value;if(!a||!b||a===b)return toast('Create/select two different teams');
  const mode=$('matchMode').value,matchFormat=$('matchFormat').value;
  const selection=state.playingSelection;
- if(!selection||selection.teamA!==a||selection.teamB!==b||selection.mode!==mode)return toast('Confirm the playing players for these teams first');
- const required=mode==='single'?1:mode==='double'?2:mode==='triple'?3:null;
  const availableA=playersFor(a),availableB=playersFor(b);
- const lineupA=selection.playersA,lineupB=selection.playersB;
- if(!Array.isArray(lineupA)||!Array.isArray(lineupB)||!lineupA.length||!lineupB.length||lineupA.length>15||lineupB.length>15||lineupA.length!==selection.countA||lineupB.length!==selection.countB||new Set(lineupA).size!==lineupA.length||new Set(lineupB).size!==lineupB.length||lineupA.some(id=>!availableA.some(p=>p.id===id))||lineupB.some(id=>!availableB.some(p=>p.id===id)))return toast('Some selected players are no longer valid. Confirm the lineups again.');
- if(required&&(lineupA.length!==required||lineupB.length!==required))return toast(`${modeLabel(mode)} requires exactly ${required} player${required===1?'':'s'} per side.`);
+ const validSelection=selection&&selection.teamA===a&&selection.teamB===b&&selection.mode===mode;
+ const selectedA=validSelection&&Array.isArray(selection.playersA)?selection.playersA.filter(id=>availableA.some(p=>p.id===id)):[];
+ const selectedB=validSelection&&Array.isArray(selection.playersB)?selection.playersB.filter(id=>availableB.some(p=>p.id===id)):[];
+ const countA=validSelection?Math.max(1,Math.min(15,Number(selection.countA)||1)):(mode==='standard'?Math.min(11,availableA.length||1):1);
+ const countB=validSelection?Math.max(1,Math.min(15,Number(selection.countB)||1)):(mode==='standard'?Math.min(11,availableB.length||1):1);
+ const lineupA=[...new Set(selectedA)].slice(0,countA);
+ const lineupB=[...new Set(selectedB)].slice(0,countB);
  const overs=matchFormat==='Test Match'?null:Number($('matchOvers').value);
  if(overs!==null&&(!Number.isInteger(overs)||overs<1||overs>100))return toast('Overs must be a whole number between 1 and 100');
  const winner=$('tossWinner').value||a, batFirst=$('tossDecision').value==='bat'?winner:(winner===a?b:a);
  const lineups={[a]:lineupA,[b]:lineupB},firstLineup=lineups[batFirst];
  const first=newInnings(batFirst,batFirst===a?b:a,firstLineup,mode);
- const m={id:uid(),title:$('matchTitle').value.trim()||`${team(a).name} vs ${team(b).name}`,format:matchFormat,mode,overs,venue:$('matchVenue').value.trim(),date:$('matchDate').value,teams:[a,b],lineups,seriesId:$('matchSeries').value,toss:{winner,decision:$('tossDecision').value},innings:[first],current:0,status:'live',created:Date.now(),superOver:false,striker:firstLineup[0]||null,non:firstLineup[1]||null,bowler:null,pendingBowler:false,pendingBatterSlot:''};
+ first.wicketLimit=Math.max(1,(batFirst===a?countA:countB)-(mode==='standard'?1:0));
+ const reserveAId=mode==='standard'?(validSelection&&selection.reserveA?selection.reserveA:$('reserveA').value||''):'';
+ const reserveBId=mode==='standard'?(validSelection&&selection.reserveB?selection.reserveB:$('reserveB').value||''):'';
+ const reserves={ [a]:availableA.some(p=>p.id===reserveAId)&&!lineupA.includes(reserveAId)?reserveAId:'', [b]:availableB.some(p=>p.id===reserveBId)&&!lineupB.includes(reserveBId)?reserveBId:'' };
+ const wicketkeepers={};
+ [a,b].forEach(teamId=>{const lineup=lineups[teamId];wicketkeepers[teamId]=lineup.map(id=>state.players.find(p=>p.id===id&&p.role==='Wicketkeeper')?.id).find(Boolean)||null});
+ const m={id:uid(),title:$('matchTitle').value.trim()||`${team(a).name} vs ${team(b).name}`,format:matchFormat,mode,overs,venue:$('matchVenue').value.trim(),date:$('matchDate').value,teams:[a,b],lineups,reserves,playerCounts:{[a]:countA,[b]:countB},wicketkeepers,seriesId:$('matchSeries').value,toss:{winner,decision:$('tossDecision').value},innings:[first],current:0,status:'live',created:Date.now(),superOver:false,striker:firstLineup[0]||null,non:firstLineup[1]||null,bowler:null,pendingBowler:false,pendingBatterSlot:''};
  state.matches.unshift(m);currentId=m.id;undoStack=[];save();page('scorer');toast('Match started');
 }
 function newInnings(bat,bowl,lineup=[],mode='standard'){return {batting:bat,bowling:bowl,lineup:[...lineup],wicketLimit:mode==='standard'?Math.max(1,lineup.length-1):lineup.length,runs:0,wickets:0,legal:0,balls:[],batters:{},bowlers:{},extras:{wide:0,noball:0,bye:0,legbye:0,penalty:0},fow:[],partnership:0}}

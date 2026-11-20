@@ -66,6 +66,8 @@
 .lineup-presets{display:flex;gap:6px;margin:8px 0}
 .lineup-presets button{width:auto;min-width:44px;padding:6px 8px;font-size:12px;border-radius:7px}
 .lineup-presets button:disabled{opacity:.45;cursor:not-allowed}
+.reserve-label{display:block;margin:10px 0 5px!important;color:var(--muted);font-size:12px}
+.reserve-label+select{width:100%}
 .team-player-list-heading{margin-top:18px!important;margin-bottom:8px!important}
 .match-player-panel{margin:12px 0}
 .match-player-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end}
