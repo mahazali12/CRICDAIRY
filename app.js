@@ -41,7 +41,7 @@ function modeLabel(mode){return ({standard:'Standard',single:'Single wicket',dou
 function addTeam(name){if(!name.trim())return;state.teams.push({id:uid(),name:name.trim()});save()}
 function init(){
  state=window.__initialState||null;
- Store.init().then(data=>{state=normalizeState(data||Store.defaults());lang=state.settings.lang||'en';$('matchDate').value=new Date().toISOString().slice(0,10);renderAll();setup();applyLanguage();if(!data?.settings?.profileName||data.settings.profileName==='Admin')Store.save(state).then(ok=>{if(ok)$('saveStatus').textContent='Saved on this device'});if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});if(state.settings.login){$('login').classList.remove('hidden');}});
+ Store.init().then(data=>{state=normalizeState(data||Store.defaults());lang=state.settings.lang||'en';$('matchDate').value=new Date().toISOString().slice(0,10);renderAll();setup();applyLanguage();if(!data?.settings?.profileName||data.settings.profileName==='Admin'||data?.settings?.login!==undefined||data?.settings?.password!==undefined)Store.save(state).then(ok=>{if(ok)$('saveStatus').textContent='Saved on this device'});if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});});
 }
 function normalizeState(data){
  const defaults=Store.defaults();
@@ -54,6 +54,8 @@ function normalizeState(data){
   playingDraft:data?.playingDraft||null,
   playingSelection:data?.playingSelection||null
  };
+ delete normalized.settings.login;
+ delete normalized.settings.password;
  if(!normalized.settings.profileName||normalized.settings.profileName==='Admin')normalized.settings.profileName='RAZI SHAH';
  if(!normalized.settings.profilePhoto)normalized.settings.profilePhoto='./assets/admin-profile.jpg';
  if(!normalized.settings.displayPhoto)normalized.settings.displayPhoto='./assets/app-display.jpg';
@@ -84,6 +86,12 @@ function setup(){
  $('removeProfilePhoto').onclick=()=>{state.settings.profilePhoto='./assets/admin-profile.jpg';$('profilePhotoInput').value='';save();toast('Original profile picture restored')};
  document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>page(b.dataset.page));
  document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>page(b.dataset.go));
+ $('homeManageTeams').onclick=()=>page('teams');
+ $('homeNewMatch').onclick=()=>page('newmatch');
+ $('homeResumeMatch').onclick=resumeLatestMatch;
+ $('homeHistory').onclick=()=>page('history');
+ $('homeBackup').onclick=()=>page('reports');
+ $('homeLoadMatch').onclick=()=>page('live');
  $('langBtn').onclick=()=>{lang=lang==='en'?'ur':'en';state.settings.lang=lang;save();document.documentElement.dir=lang==='ur'?'rtl':'ltr';document.querySelectorAll('[data-en]').forEach(e=>e.textContent=e.dataset[lang]);$('langBtn').textContent=lang==='en'?'اردو':'English'};
  $('addTeam').onclick=()=>{addTeam($('newTeamName').value);$('newTeamName').value='';toast('Team added')};
  $('addQuickTeam').onclick=()=>{page('teams');$('newTeamName').focus();toast('Enter the team name, then select Add')};
@@ -109,7 +117,6 @@ function setup(){
  $('pickBowler').onchange=e=>{const m=activeMatch();if(m){m.bowler=e.target.value;save()}};
  $('endInnings').onclick=endInnings;$('startNextInnings').onclick=startNextInnings;$('finishMatch').onclick=finishMatch;$('backLive').onclick=()=>page('live');$('printScore').onclick=()=>window.print();
  $('shareMatch').onclick=shareMatch;
- $('resumeMatch').onclick=resumeLatestMatch;
  $('resumeNav').onclick=resumeLatestMatch;
  $('installApp').onclick=installApp;
  $('historySearch').oninput=renderHistory;
@@ -118,10 +125,6 @@ function setup(){
  $('addTournament').onclick=()=>{const n=$('tournamentName').value.trim();if(!n)return toast('Enter a series name');if(state.tournaments.some(s=>s.name.toLowerCase()===n.toLowerCase()))return toast('A series with this name already exists');state.tournaments.push({id:uid(),name:n});$('tournamentName').value='';save();toast('Series created. Select it when creating a match.')};
  $('exportJson').onclick=exportJson;$('restoreJson').onchange=restoreJson;$('exportCsv').onclick=exportCsv;
  $('reportPrint').onclick=()=>{const id=$('reportMatch').value;if(id){currentId=id;page('scorer');setTimeout(()=>window.print(),250)}};
- $('changePassword').onclick=()=>{const p=$('newPassword').value;if(p.length<6)return toast('Use at least 6 characters');state.settings.password=p;state.settings.login=true;save();toast('Password updated')};
- $('disableLogin').onclick=()=>{state.settings.login=false;save();toast('Login disabled')};
- $('lockBtn').onclick=()=>{state.settings.login=true;save();$('login').classList.remove('hidden')};
- $('loginBtn').onclick=()=>{if($('loginUser').value==='admin'&&$('loginPass').value===state.settings.password){$('login').classList.add('hidden');toast('Welcome back')}else $('loginMsg').textContent='Incorrect login'};
  $('demoBtn').onclick=demo;$('clearDemo').onclick=async()=>{if(!confirm('Delete ALL local teams, players and matches? Export a backup first.'))return;state=Store.defaults();currentId=null;undoStack=[];const cleared=await Store.clear();renderAll();$('saveStatus').textContent=cleared?'Local data cleared':'Could not clear all local data';toast(cleared?'Local data cleared':'Could not clear all local data')};
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')Store.save(state)});
  window.addEventListener('pagehide',()=>{Store.save(state)});
@@ -147,11 +150,11 @@ function saveDisplayPhoto(){
 function profileMarkup(){
  const photo=state.settings.profilePhoto||'./assets/admin-profile.jpg';
  const display=state.settings.displayPhoto||'./assets/app-display.jpg';
- ['headerDisplayPic','loginDisplayPic','settingsDisplayPreview'].forEach(id=>{const el=$(id);if(el)el.src=display;});
+ ['headerDisplayPic','settingsDisplayPreview'].forEach(id=>{const el=$(id);if(el)el.src=display;});
  const name=state.settings.profileName||'RAZI SHAH';
  const initial=(name.trim()[0]||'A').toUpperCase();
  const placeholder='data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><rect width="100%" height="100%" fill="#174327"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="76" font-weight="700" fill="#eaffef">${initial}</text></svg>`);
- ['headerProfilePhoto','dashboardProfilePhoto','loginProfilePhoto','settingsProfilePreview'].forEach(id=>{const el=$(id);if(!el)return;el.src=photo||placeholder;el.style.display='inline-flex'});
+ ['headerProfilePhoto','dashboardProfilePhoto','settingsProfilePreview'].forEach(id=>{const el=$(id);if(!el)return;el.src=photo||placeholder;el.style.display='inline-flex'});
  ['headerProfileName','dashboardProfileName'].forEach(id=>{if($(id))$(id).textContent=name});
  if($('profileNameInput'))$('profileNameInput').value=name;
  if($('settingsDisplayPreview'))$('settingsDisplayPreview').src=display;
@@ -476,9 +479,9 @@ function renderAll(){profileMarkup();fillTeamSelects();renderDashboard();renderT
 function renderDashboard(){
  $('totalMatches').textContent=state.matches.length;$('totalTeams').textContent=state.teams.length;$('totalPlayers').textContent=state.players.length;
  const live=state.matches.filter(m=>m.status==='live');$('liveCount').textContent=live.length;
- const resume=live[0];$('resumePanel').classList.toggle('hidden',!resume);
+ const resume=live[0];$('homeResumeMatch').classList.toggle('hidden',!resume);
  $('resumeNav').classList.toggle('hidden',!resume);
- if(resume)$('resumeMatchLabel').textContent=`${resume.title} • ${team(resume.teams[0])?.name||''} vs ${team(resume.teams[1])?.name||''}`;
+ $('homeResumeSummary').textContent=resume?`${resume.title} • ${team(resume.teams[0])?.name||''} vs ${team(resume.teams[1])?.name||''}`:'No saved live match';
  $('recentMatches').className=state.matches.length?'match-list':'match-list empty';$('recentMatches').innerHTML=state.matches.slice(0,5).map(matchCard).join('')||'No matches yet. Create your first match.';
 }
 function resumeLatestMatch(){

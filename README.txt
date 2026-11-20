@@ -12,11 +12,10 @@ RUN LOCALLY
 5. For future use, open the same local address. Do not move/delete the folder while using this local server.
 
 IMPORTANT
-- The app automatically saves to IndexedDB with a previous-state recovery copy and localStorage fallback. Data is local to this browser profile and computer; use the dashboard Resume match button after reopening.
+- The app opens directly to a launch menu for teams, new matches, saved matches, history and backup/restore. It automatically saves to IndexedDB with a previous-state recovery copy and localStorage fallback. Data is local to this browser profile and computer.
+- No login is required. App data is stored locally in this browser without encryption; protect your device and keep backups private.
 - Export JSON backups from Reports & Backup for a separate copy or to move data to another computer. Browsers do not permit silent writes to arbitrary backup files.
 - CSV export opens in Excel. Use Print > Save as PDF for scorecards.
-- Optional login defaults to username admin and password cricdairy123. Change it in Settings before use.
-- Login is a simple local access lock, not encryption. Do not rely on it to protect sensitive data.
 - No cloud sync, online live-score feed, or automatic WhatsApp sending is included. WhatsApp sharing requires internet and is not part of the offline core.
 - For true PWA install/offline caching, run from localhost or HTTPS; browsers do not allow service workers from file:// URLs.
 - On Android, install from the app's Install app button when the browser offers it, or use the browser menu. On iPhone/iPad, use Safari Share > Add to Home Screen.
@@ -28,7 +27,7 @@ match history, series grouping/results, JSON backup/restore, CSV export, print/P
 toggle labels, and responsive layout. Extras support selectable runs and optional dismissals; innings breaks
 wait for the scorer to start the next innings. Targets and run rates update during a chase, completed matches
 are saved to history automatically, and history cards can share the summary.
-The app also includes a web app manifest, home-screen icon, standalone display mode, and offline service-worker cache for phone installation.
+The app also includes a web app manifest, standalone display mode, and offline service-worker cache for phone installation. The installed app icon uses the same admin profile picture as the app.
 
 Planned/partial modules requiring further development:
 - Full Test match multi-innings and follow-on enforcement
@@ -38,7 +37,7 @@ Planned/partial modules requiring further development:
 - Wagon wheel, charts, sound effects and celebration animations
 - Full Urdu translation, PDF templates, certificates and logo upload
 - Maidens, bowling strike/economy edge cases, run-out crossing and full laws-based dismissal validation
-- Admin/Scorer permission separation and secure authentication
+- Secure authentication and role-based permissions (not included)
 - Native desktop installer and multi-device LAN sync
 
 CRICKET SCORING UPDATE
@@ -50,12 +49,12 @@ CRICKET SCORING UPDATE
 PROFILE FEATURE UPDATE
 - Admin display name and profile photo can be set from Settings & Help > Admin Profile & Display Picture.
 - Default admin display name is RAZI SHAH; a previously saved default "Admin" name is updated automatically.
-- The profile photo is resized and stored in local app data, then shown in the header, dashboard, login screen, and printed scorecard.
+- The profile photo is resized and stored in local app data, then shown in the header, dashboard, and printed scorecard.
 - The CRICDAIRY cricket-ball brand mark remains fixed and cannot be changed, as requested.
 - Profile data is included in the JSON backup/restore.
 
 
 PROFILE & DISPLAY PICTURES
 - Your supplied admin profile picture is saved in assets/admin-profile.jpg and is used by default.
-- Your supplied CRICDAIRY display picture is saved in assets/app-display.jpg and appears in the app header and login screen.
+- Your supplied CRICDAIRY display picture is saved in assets/app-display.jpg and appears in the app header.
 - Settings lets you upload a replacement profile picture or display picture. Both are stored locally in this browser; the two supplied defaults are included in the offline app cache.
