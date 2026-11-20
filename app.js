@@ -1,4 +1,4 @@
-let state, currentId=null, currentPlayerId=null, currentTeamId=null, scorecardMatchId=null, scorecardInningsIndex=0, undoStack=[], lang='en', saveRevision=0, pendingDelivery=null, installPromptEvent=null, swipeStart=null, editingTournamentId=null, editingMatchId=null;
+let state, currentId=null, currentPlayerId=null, currentTeamId=null, scorecardMatchId=null, scorecardInningsIndex=0, undoStack=[], lang='en', saveRevision=0, pendingDelivery=null, installPromptEvent=null, swipeStart=null, editingTournamentId=null, editingMatchId=null, editingTeamPlayerId=null;
 const $=id=>document.getElementById(id), uid=()=>Math.random().toString(36).slice(2,10);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(s){$('toast').textContent=s;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2300)}
@@ -160,6 +160,7 @@ function setup(){
  $('endInnings').onclick=endInnings;$('startNextInnings').onclick=startNextInnings;$('finishMatch').onclick=finishMatch;$('backLive').onclick=()=>page('live');$('printScore').textContent='Print / Save PDF';$('printScore').onclick=printMatchReport;
  $('shareMatch').onclick=shareMatch;
  if($('reportShare'))$('reportShare').onclick=()=>{const id=$('reportMatch').value;if(id){currentId=id;shareMatch()}else toast('Choose a match to share')};
+ $('reportMatch').onchange=updateReportShareButton;
  $('installApp').onclick=installApp;
  $('historySearch').oninput=renderHistory;
  $('playerStatsSearch').oninput=()=>renderPlayerStats();
@@ -732,7 +733,7 @@ function renderWinningPrediction(m,inn){
 }
 function renderLiveScoringSummary(m,inn){
  const recent=(inn.balls||[]).slice(-6);
- $('recentBalls').innerHTML=recent.map(ball=>`<span class="recent-ball ${ball.wicket?'wicket':''}">${esc(ball.text||'•')}</span>`).join('')||'<span class="recent-ball empty-ball">—</span>';
+ $('recentBalls').innerHTML=recent.map(ball=>`<span class="recent-ball ${ball.wicket?'wicket':''} ${ball.type&&ball.type!=='run'?'extra':''}" title="${esc(ball.type||'run')}">${esc(ball.text||'•')}</span>`).join('')||'<span class="recent-ball empty-ball">—</span>';
  const batterIds=[m.striker,m.non,...Object.keys(inn.batters||{})].filter((id,index,all)=>id&&all.indexOf(id)===index);
  const battingRows=batterIds.map(id=>{
   const stats=inn.batters[id]||{runs:0,balls:0,fours:0,sixes:0,out:false,dismissal:''},active=id===m.striker||id===m.non;
@@ -832,10 +833,12 @@ function renderScorer(){
  const bs=inn.batters[m.striker]||{runs:0,balls:0},ns=inn.batters[m.non]||{runs:0,balls:0},bo=inn.bowlers[m.bowler]||{runs:0,wickets:0,legal:0};
  $('strikerName').textContent=playerNameWithCaptain(m.striker,m);$('nonName').textContent=playerNameWithCaptain(m.non,m);$('bowlerName').textContent=playerNameWithCaptain(m.bowler,m);
  $('strikerStats').textContent=`${bs.runs} (${bs.balls})`;$('nonStats').textContent=`${ns.runs} (${ns.balls})`;$('bowlerStats').textContent=`${bo.wickets}-${bo.runs} • ${Math.floor(bo.legal/6)}.${bo.legal%6}`;
- $('overLog').innerHTML=inn.balls.length?inn.balls.map((x,i)=>`<span class="over-pill">${esc(x.text)}</span>${(i+1)%6===0?'<br>':''}`).join(''):'No deliveries yet.';
+ const overGroups=inningsOverGroups(inn);
+ $('overLog').innerHTML=overGroups.size?Array.from(overGroups,([over,summary])=>`<div class="over-log-row"><b>Over ${over+1} (${summary.runs} runs):</b> ${summary.balls.map(esc).join(' ')}</div>`).join(''):'No deliveries yet.';
  renderLiveScoringSummary(m,inn);
  renderNextPlayerPrompts(m,inn);
  const atBreak=m.status==='live'&&m.inningsBreak,active=m.status==='live'&&!m.inningsBreak;
+ $('shareMatch').classList.toggle('hidden',m.status!=='completed');
  $('inningsBreak').classList.toggle('hidden',!atBreak);
  if(atBreak){const first=m.innings[0],defending=team(first.bowling);$('inningsBreakSummary').textContent=`${team(first.batting)?.name||'Team'} finished on ${first.runs}/${first.wickets}. Target for ${defending?.name||'the chasing team'}: ${first.runs+1}.`}
  document.querySelector('.scoring-layout').classList.toggle('hidden',!active);
@@ -888,8 +891,11 @@ function inningsOverGroups(inn){
  const overs=new Map();let legalBalls=0;
  (inn.balls||[]).forEach(ball=>{
   const recordedOver=Number(ball.over),over=Number.isInteger(recordedOver)&&recordedOver>=0?recordedOver:Math.floor(legalBalls/6);
-  const deliveries=overs.get(over)||[];
-  deliveries.push(ball.text||'•');overs.set(over,deliveries);
+  const summary=overs.get(over)||{balls:[],runs:0};
+  const text=ball.text||'•';
+  summary.balls.push(text==='•'?'0':text.startsWith('• ')?`0${text.slice(1)}`:text);
+  summary.runs+=Number(ball.total)||0;
+  overs.set(over,summary);
   const legal=typeof ball.legal==='boolean'?ball.legal:!['wide','noball','penalty'].includes(ball.type);
   if(legal)legalBalls++;
  });
@@ -912,7 +918,7 @@ function inningsText(inn,index){
   'Bowling:',...(bowlers.length?bowlers:['No bowling figures recorded']),
   `Extras: ${Object.entries(inn.extras||{}).map(([name,value])=>`${name} ${Number(value)||0}`).join(', ')||'none'}`,
   `Fall of wickets: ${(inn.fow||[]).map(item=>`${item.w}-${item.r} (${item.overs}), ${playerName(item.player)}`).join('; ')||'none'}`,
-  ...(overs.size?['Ball-by-ball:',...Array.from(overs.entries(),([over,balls])=>`Over ${over+1}: ${balls.join(' ')}`)]:[])
+  ...(overs.size?['Ball-by-ball:',...Array.from(overs.entries(),([over,summary])=>`Over ${over+1} (${summary.runs} runs): ${summary.balls.join(' ')}`)]:[])
  ].join('\n');
 }
 function summaryText(m){
@@ -969,6 +975,7 @@ function dismissalDescription(inn,playerId,stats){
 }
 async function shareMatch(){
  const m=activeMatch();if(!m)return;
+ if(m.status!=='completed')return toast('Complete the match to share the PDF');
  await shareMatchPdf(m);
 }
 function fillPlayerPick(id,arr,selected){$(id).innerHTML='<option value="">Select player</option>'+arr.map(p=>`<option value="${p.id}" ${p.id===selected?'selected':''}>${esc(p.name)}</option>`).join('')}
@@ -1014,7 +1021,7 @@ async function changePlayerPhoto(id,file){
 function inningsBallHistoryMarkup(inn){
  const overs=inningsOverGroups(inn);
  if(!overs.size)return '';
- return `<h3>Ball-by-ball</h3><div class="report-ball-history">${Array.from(overs.entries(),([over,balls])=>`<p><b>Over ${over+1}:</b> ${balls.map(esc).join(' · ')}</p>`).join('')}</div>`;
+ return `<h3>Ball-by-ball</h3><div class="report-ball-history">${Array.from(overs.entries(),([over,summary])=>`<p><b>Over ${over+1} (${summary.runs} runs):</b> ${summary.balls.map(esc).join(' ')}</p>`).join('')}</div>`;
 }
 function inningsScorecardMarkup(inn,index){
  const rows=Object.entries(inn.batters||{}).map(([id,stats])=>{
@@ -1108,6 +1115,15 @@ function createMatchPdfBlob(m){
   }
   lines.push('');
  });
+ (m.innings||[]).forEach((inn,index)=>{
+  const overs=inningsOverGroups(inn);
+  if(!overs.size)return;
+  lines.push(`${inningsOrdinal(index)} Innings — Ball-by-ball`);
+  Array.from(overs.entries()).forEach(([over,summary])=>{
+   lines.push(`Over ${over+1} (${summary.runs} runs): ${summary.balls.join(' ')}`);
+  });
+  lines.push('');
+ });
  if(m.status==='completed'){
   lines.push(m.result||'Match completed');
   if(m.playerOfTheMatch){
@@ -1117,8 +1133,8 @@ function createMatchPdfBlob(m){
  }else{
   lines.push('Match in progress');
  }
- const pageLines=44,pages=[];
- for(let i=0;i<lines.length;i+=pageLines)pages.push(lines.slice(i,i+pageLines));
+ const printableLines=pdfTextLines(lines.join('\n')),pageLines=44,pages=[];
+ for(let i=0;i<printableLines.length;i+=pageLines)pages.push(printableLines.slice(i,i+pageLines));
  if(!pages.length)pages=[[]];
  let pdf='%PDF-1.4\n';
  const offsets=[0];
@@ -1162,6 +1178,7 @@ function downloadBlob(blob,name){
 }
 async function shareMatchPdf(m){
  if(!m)return;
+ if(m.status!=='completed')return toast('Complete the match to share the PDF');
  const blob=createMatchPdfBlob(m),file=new File([blob],safeFileName(m),{type:'application/pdf'});
  try{
   if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
@@ -1187,7 +1204,7 @@ function matchCard(m,showManagement=false){
  const teamOptionsB=state.teams.map(item=>`<option value="${esc(item.id)}" ${m.teams[1]===item.id?'selected':''}>${esc(item.name)}</option>`).join('');
  const seriesOptions=state.tournaments.map(series=>`<option value="${esc(series.id)}" ${m.seriesId===series.id?'selected':''}>${esc(series.name)}</option>`).join('');
  const editMarkup=editMode?`<div class="match-edit-form"><div class="match-edit-grid"><label>Match title (optional)<input id="editMatchTitle-${esc(m.id)}" value="${esc(m.title)}" maxlength="100"></label><label>Venue (optional)<input id="editMatchVenue-${esc(m.id)}" value="${esc(m.venue||'')}" maxlength="100"></label><label>Team A<select id="editMatchTeamA-${esc(m.id)}">${teamOptions}</select></label><label>Team B<select id="editMatchTeamB-${esc(m.id)}">${teamOptionsB}</select></label><label>Status<select id="editMatchStatus-${esc(m.id)}"><option value="live" ${m.status==='live'?'selected':''}>Live</option><option value="completed" ${m.status==='completed'?'selected':''}>Completed</option></select></label><label>Series<select id="editMatchSeries-${esc(m.id)}"><option value="">No series</option>${seriesOptions}</select></label><label>Match date<input id="editMatchDate-${esc(m.id)}" type="date" value="${esc(m.date||'')}"></label><label>Player of the Match<select id="editMatchPOTM-${esc(m.id)}"><option value="">No player selected</option>${matchParticipantIds(m).map(id=>`<option value="${esc(id)}" ${m.playerOfTheMatch===id?'selected':''}>${esc(playerName(id))}</option>`).join('')}</select></label></div><div class="match-edit-actions"><div class="actions"><button class="primary" data-save-match="${esc(m.id)}">Save changes</button><button class="ghost" data-cancel-match="${esc(m.id)}">Cancel</button></div><button class="danger ghost" data-delete-match="${esc(m.id)}">Delete match</button></div></div>`:'';
- return `<div class="match-card"><div class="match-card-info"><b>${esc(m.title)}</b><small>${esc(team(m.teams[0])?.name||'')} vs ${esc(team(m.teams[1])?.name||'')} • ${esc(m.format)} • ${esc(m.status)}${seriesName(m.seriesId)?' • '+esc(seriesName(m.seriesId)):''}</small><small>${m.innings.map((i,index)=>`${index===0?'1st':'2nd'} Innings — ${esc(team(i.batting)?.name||'')}: ${i.runs}/${i.wickets}`).join(' | ')}${m.status==='completed'&&m.result?' • '+esc(m.result):''}</small></div><div class="match-actions"><button data-open="${esc(m.id)}" class="ghost">${m.status==='live'?'Open / Resume':'Summary'}</button><button data-share="${esc(m.id)}" class="ghost">Share PDF</button></div>${showManagement?`<div class="match-management-row"><button data-edit-match="${esc(m.id)}" class="ghost">${editMode?'Close edit':'Edit match'}</button></div>`:''}${showManagement?editMarkup:''}</div>`;
+ return `<div class="match-card"><div class="match-card-info"><b>${esc(m.title)}</b><small>${esc(team(m.teams[0])?.name||'')} vs ${esc(team(m.teams[1])?.name||'')} • ${esc(m.format)} • ${esc(m.status)}${seriesName(m.seriesId)?' • '+esc(seriesName(m.seriesId)):''}</small><small>${m.innings.map((i,index)=>`${index===0?'1st':'2nd'} Innings — ${esc(team(i.batting)?.name||'')}: ${i.runs}/${i.wickets}`).join(' | ')}${m.status==='completed'&&m.result?' • '+esc(m.result):''}</small></div><div class="match-actions"><button data-open="${esc(m.id)}" class="ghost">${m.status==='live'?'Open / Resume':'Summary'}</button>${m.status==='completed'?`<button data-share="${esc(m.id)}" class="ghost">Share PDF</button>`:''}</div>${showManagement?`<div class="match-management-row"><button data-edit-match="${esc(m.id)}" class="ghost">${editMode?'Close edit':'Edit match'}</button></div>`:''}${showManagement?editMarkup:''}</div>`;
 }
 function seriesName(id){return state.tournaments.find(s=>s.id===id)?.name||''}
 function bindCards(){
@@ -1466,21 +1483,59 @@ function renderTeams(){
   const initial=(p.name?.trim()[0]||'P').toUpperCase();
   const avatar=p.photo?`<img src="${p.photo}" alt="${esc(p.name)}">`:`<span class="player-avatar-fallback">${esc(initial)}</span>`;
   const captain=selectedTeam?.captainId===p.id;
-  return `<div class="player-row editable-player"><div class="player-main">${avatar}<div><b>${esc(p.name)}${captain?' <span class="captain-badge">C</span>':''}</b><small>${esc(team(p.teamId)?.name||'')} • ${esc(playerRoleLabel(p.role))}${captain?' • Captain':''}</small></div></div><div class="player-photo-actions"><button type="button" class="ghost player-photo-change" data-player-id="${p.id}">Change photo</button><button type="button" class="ghost player-photo-remove" data-player-id="${p.id}" ${p.photo?'':'disabled'}>Remove</button><input class="player-photo-input" type="file" accept="image/*" data-player-id="${p.id}" hidden></div></div>`;
+   const editMode=editingTeamPlayerId===p.id;
+   const editMarkup=editMode?`<div class="team-player-edit-form"><div class="team-player-edit-grid"><label>Player name<input id="editTeamPlayerName-${esc(p.id)}" value="${esc(p.name)}" maxlength="60"></label><label>Role<select id="editTeamPlayerRole-${esc(p.id)}"><option ${p.role==='All-rounder'?'selected':''}>All-rounder</option><option ${p.role==='Batter'?'selected':''}>Batter</option><option ${p.role==='Bowler'?'selected':''}>Bowler</option><option ${p.role==='Wicketkeeper'?'selected':''}>Wicketkeeper</option></select></label><label>Team / Club<select id="editTeamPlayerTeam-${esc(p.id)}">${state.teams.map(item=>`<option value="${esc(item.id)}" ${p.teamId===item.id?'selected':''}>${esc(item.name)}</option>`).join('')}</select></label></div><div class="team-player-photo-edit"><img src="${p.photo?esc(p.photo):''}" alt="Player preview" class="team-player-preview" ${p.photo?'':'hidden'}><div><label>Profile photo (optional)<input type="file" accept="image/*" class="team-player-photo-input" data-player-id="${esc(p.id)}"></label><button type="button" class="ghost" data-remove-team-player-photo="${esc(p.id)}" ${p.photo?'':'disabled'}>Remove photo</button></div></div><div class="team-player-edit-actions"><div class="actions"><button type="button" class="primary" data-save-team-player="${esc(p.id)}">Save changes</button><button type="button" class="ghost" data-cancel-team-player="${esc(p.id)}">Cancel</button></div></div></div>`:'';
+   return `<div class="player-row editable-player"><div class="player-main">${avatar}<div><b>${esc(p.name)}${captain?' <span class="captain-badge">C</span>':''}</b><small>${esc(team(p.teamId)?.name||'')} • ${esc(playerRoleLabel(p.role))}${captain?' • Captain':''}</small></div></div><div class="player-edit-action"><button type="button" class="ghost" data-edit-team-player="${esc(p.id)}">${editMode?'Close edit':'Edit player'}</button></div>${editMarkup}</div>`;
  }).join('')||(selectedTeamId?`<p class="muted">No players added for ${esc(selectedTeam?.name||'this team')} yet.</p>`:'<p class="muted">Select a team or club first.</p>');
- document.querySelectorAll('.player-photo-change').forEach(button=>{
-  button.onclick=()=>document.querySelector(`.player-photo-input[data-player-id="${button.dataset.playerId}"]`)?.click();
+  document.querySelectorAll('[data-edit-team-player]').forEach(button=>{
+   button.onclick=()=>{editingTeamPlayerId=editingTeamPlayerId===button.dataset.editTeamPlayer?null:button.dataset.editTeamPlayer;renderTeams()};
+  });
+  document.querySelectorAll('[data-cancel-team-player]').forEach(button=>{
+   button.onclick=()=>{editingTeamPlayerId=null;renderTeams()};
+  });
+  document.querySelectorAll('[data-save-team-player]').forEach(button=>{
+   button.onclick=()=>saveTeamPlayerEdit(button.dataset.saveTeamPlayer);
+  });
+  document.querySelectorAll('[data-remove-team-player-photo]').forEach(button=>{
+   button.onclick=()=>removeTeamPlayerPhoto(button.dataset.removeTeamPlayerPhoto);
+  });
+  document.querySelectorAll('.team-player-photo-input').forEach(input=>{
+   input.onchange=()=>changeTeamPlayerPhoto(input.dataset.playerId,input.files[0]);
  });
- document.querySelectorAll('.player-photo-input').forEach(input=>{
-  input.onchange=()=>changePlayerPhoto(input.dataset.playerId,input.files[0]);
- });
- document.querySelectorAll('.player-photo-remove').forEach(button=>{
-  button.onclick=()=>{
-   const player=state.players.find(p=>p.id===button.dataset.playerId);
-   if(!player||!player.photo)return;
-   player.photo='';save();toast('Player photo removed');
-  };
- });
+}
+async function saveTeamPlayerEdit(playerId){
+  const player=state.players.find(item=>item.id===playerId);
+  if(!player)return toast('Player not found');
+  const name=$(`editTeamPlayerName-${playerId}`).value.trim();
+  const role=$(`editTeamPlayerRole-${playerId}`).value;
+  const teamId=$(`editTeamPlayerTeam-${playerId}`).value;
+  if(!name)return toast('Enter a player name');
+  if(!team(teamId))return toast('Select a team or club');
+  if(playersFor(teamId).some(item=>item.id!==playerId&&item.name.trim().toLowerCase()===name.toLowerCase()))return toast('This name is already used in the selected team or club');
+  const oldTeam=team(player.teamId);
+  player.name=name;
+  player.role=role;
+  player.teamId=teamId;
+  if(oldTeam?.captainId===playerId&&oldTeam.id!==teamId)oldTeam.captainId='';
+  if(team(teamId)?.captainId===playerId)team(teamId).captainId=playerId;
+  editingTeamPlayerId=null;
+  save();renderTeams();renderAll();toast('Player details updated');
+}
+async function changeTeamPlayerPhoto(playerId,file){
+  if(!file)return;
+  if(!file.type.startsWith('image/'))return toast('Please choose an image file');
+  const photo=await resizeImage(file,320);
+  if(!photo)return toast('Could not read this image');
+  const player=state.players.find(item=>item.id===playerId);
+  if(!player)return;
+  player.photo=photo;
+  save();renderTeams();toast('Player photo updated');
+}
+function removeTeamPlayerPhoto(playerId){
+  const player=state.players.find(item=>item.id===playerId);
+  if(!player||!player.photo)return toast('No player photo to remove');
+  player.photo='';
+  save();renderTeams();toast('Player photo removed');
 }
 function createTournament(){
  const name=$('tournamentName').value.trim();
@@ -1573,7 +1628,14 @@ function startSeriesMatch(seriesId){
  updateMatchModeInfo();renderPlayingPlayerSelectors();
  toast(`Match setup opened for ${series.name}`);
 }
-function fillReportSelect(){$('reportMatch').innerHTML=state.matches.map(m=>`<option value="${m.id}">${esc(m.title)} — ${esc(m.status)}</option>`).join('')}
+function updateReportShareButton(){
+ const match=state.matches.find(item=>item.id===$('reportMatch').value);
+ $('reportShare').disabled=!match||match.status!=='completed';
+}
+function fillReportSelect(){
+ $('reportMatch').innerHTML=state.matches.map(m=>`<option value="${m.id}">${esc(m.title)} — ${esc(m.status)}</option>`).join('');
+ updateReportShareButton();
+}
 function exportJson(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});download(blob,'cricdairy-backup-'+new Date().toISOString().slice(0,10)+'.json');toast('Backup downloaded')}
 function restoreJson(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d?.teams)||!Array.isArray(d?.matches)||!Array.isArray(d?.players))throw Error();if(!confirm('Replace current local data with this backup?'))return;state=normalizeState(d);save();renderAll();toast('Backup restored')}catch(err){toast('Invalid backup file')}};r.readAsText(f);e.target.value=''}
 function exportCsv(){const rows=[['Match','Team A','Team B','Format','Status','Innings 1','Innings 2','Result'],...state.matches.map(m=>[m.title,team(m.teams[0])?.name,team(m.teams[1])?.name,m.format,m.status,`${m.innings[0]?.runs}/${m.innings[0]?.wickets}`,`${m.innings[1]?.runs??''}/${m.innings[1]?.wickets??''}`,m.result||''])];const csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');download(new Blob(['\ufeff'+csv],{type:'text/csv'}),'cricdairy-matches.csv')}
