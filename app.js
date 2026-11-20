@@ -470,8 +470,11 @@ async function addBall(runs,type='run',extraRuns=0,legal=true,wicketKind=null,ou
  inn.balls.push({runs,total,type,legal,wicket:wicketKind||'',changeStrike:Boolean(forceStrikeChange),over:Math.floor((inn.legal-(legal?1:0))/6),text,batterId:type==='penalty'?null:strikerId,bowlerId:bw?m.bowler:null,fielderId:wicketKind&&needsFielder(wicketKind)?fielderId||null:null});
  if(wicketKind&&needsFielder(wicketKind))$('fielder').value='';
  if(m.current>0&&inn.runs>=m.innings[0].runs+1){completeMatchState(m);toast(m.result)}
- else if(inn.wickets>=inn.wicketLimit||m.overs&&inn.legal>=m.overs*6)endInnings(false);
- else if(wicketKind)toast('Wicket recorded');
+ else{
+  const maxOvers=Number(m.overs),oversComplete=Number.isFinite(maxOvers)&&maxOvers>0&&inn.legal>=maxOvers*6;
+  if(inn.wickets>=inn.wicketLimit||oversComplete){await endInnings(false);return}
+  if(wicketKind)toast('Wicket recorded');
+ }
  await save();renderScorer();
 }
 function ballText(r,t,total){if(t==='run')return r===0?'•':String(r);if(t==='wide')return `Wd${total>1?total:''}`;if(t==='noball')return `Nb${total>1?total:''}`;if(t==='bye')return `B${total}`;if(t==='legbye')return `Lb${total}`;return `P${total}`}

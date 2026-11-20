@@ -24,8 +24,8 @@ CURRENT RELEASE SCOPE
 This is a working starter application with local teams/players, standard and single/double/triple wicket
 matches, selectable playing lineups of 1–15 players per side and custom overs, ball-by-ball scoring, undo, match summaries and sharing,
 match history, team-selected series/tournaments and results, JSON backup/restore, CSV export, print/PDF, demo data,
-English interface, and responsive layout. Extras support selectable runs and optional dismissals; innings breaks
-wait for the scorer to start the next innings. Wides do not offer a dismissal selector. The Wicket button opens the dismissal details before recording. Targets and run rates update during a chase, completed matches
+English interface, and responsive layout. Extras support selectable runs and optional dismissals; limited-overs innings
+end automatically after the last legal ball or wicket limit, then wait for the scorer to start the next innings. Wides do not offer a dismissal selector. The Wicket button opens the dismissal details before recording. Targets and run rates update during a chase, completed matches
 are saved to history automatically, and history cards can share the summary.
 The app also includes a web app manifest, standalone display mode, and offline service-worker cache for phone installation. The home menu uses a full-screen background image, and its square icon is also used for browser and installed-app icons.
 - Player career records include batting, bowling and recorded fielding figures, including appearances, averages, strike/economy rates, best score/figures, 50s/100s, maidens, boundaries, dots, catches, stumpings, run outs and Player of the Match awards. Select a fielder for catches, stumpings and run outs so those fielding figures are credited.
