@@ -162,3 +162,12 @@ body{background:#06331e}
 .scorecard-actions label{display:flex;align-items:center;gap:8px;margin:0;color:var(--muted);font-size:12px}
 .scorecard-actions select{min-width:190px}
 @media(max-width:520px){.scorecard-actions{align-items:stretch;flex-direction:column}.scorecard-actions select{min-width:0}}
+.tournament-team-picker{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin:12px 0}
+.tournament-team-option{display:flex!important;flex-direction:row!important;align-items:center;gap:10px;padding:9px 11px;background:var(--panel2);border:1px solid var(--line);border-radius:9px}
+.tournament-team-option input{width:auto;flex:0 0 auto}
+.tournament-team-option span,.tournament-team-option small{display:block}
+.tournament-team-option small{margin-top:3px;color:var(--muted)}
+.series-actions{display:flex;align-items:center;gap:10px}
+.series-actions button{white-space:nowrap}
+#scorecard .report-brand img{display:none!important}
+@media(max-width:650px){.series-actions{align-items:flex-start;flex-direction:column}}

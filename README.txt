@@ -23,14 +23,15 @@ IMPORTANT
 CURRENT RELEASE SCOPE
 This is a working starter application with local teams/players, standard and single/double/triple wicket
 matches, selectable playing lineups of 1–15 players per side and custom overs, ball-by-ball scoring, undo, match summaries and sharing,
-match history, series grouping/results, JSON backup/restore, CSV export, print/PDF, demo data,
+match history, team-selected series/tournaments and results, JSON backup/restore, CSV export, print/PDF, demo data,
 English interface, and responsive layout. Extras support selectable runs and optional dismissals; innings breaks
-wait for the scorer to start the next innings. Targets and run rates update during a chase, completed matches
+wait for the scorer to start the next innings. Wides do not offer a dismissal selector. The Wicket button opens the dismissal details before recording. Targets and run rates update during a chase, completed matches
 are saved to history automatically, and history cards can share the summary.
 The app also includes a web app manifest, standalone display mode, and offline service-worker cache for phone installation. The home menu uses a full-screen background image, and its square icon is also used for browser and installed-app icons.
 - Player career records include batting, bowling and recorded fielding figures, including appearances, averages, strike/economy rates, best score/figures, 50s/100s, maidens, boundaries, dots, catches, stumpings, run outs and Player of the Match awards. Select a fielder for catches, stumpings and run outs so those fielding figures are credited.
 - Player names open individual career profiles with match-by-match figures; team names open team profiles with rosters, match history and records. Player rankings show run scorers, wicket takers and fielders. Team standings award 2 points for a win and 1 for a tie.
 - Team creation supports a Club team type; choose it when adding a club, and the type appears in team management, team rankings and the team profile. Older teams remain available as Other team.
+- Series and tournaments can include any selected teams or clubs. Use Start match on a series card to open match setup with those teams available.
 - Select each team's playing XI before a match and add missing names from the match setup. During a live match, replace an unused XI player with a squad player or a newly entered name; the XI size and wicket limit stay unchanged.
 - Player statistics can be filtered to one team/club or one player. Team/Club Statistics lets you select a team to see its record and only its players' career stats. Player profiles can be edited, including name, team, role and optional photo.
 
@@ -49,13 +50,14 @@ CRICKET SCORING UPDATE
 - For a wide or no-ball, tap the extra and then tap 0, 1, 2, 3, 4 or 6 in the main Runs row to record it immediately; no extra run selector or record button is needed.
 - Byes and leg-byes add the selected extras and count as legal balls. A chase ends automatically when the target is reached.
 - Extra deliveries include an optional manual strike-change control. During a match, choose an innings in the scorecard selector to review that innings' batters, dismissals and bowling figures.
+- The live scorer shows over-by-over results without the commentary panel, and the in-match scorecard does not display the profile picture.
 - Player of the Match is selected automatically by batting runs plus 20 points per credited bowling wicket (runs break ties).
 - This starter is not a certified laws engine; review scorecards, especially run-outs and edge-case dismissals, before using it for official tournament records.
 
 PROFILE FEATURE UPDATE
 - Admin display name and profile photo can be set from Settings & Help > Admin Profile & Display Picture.
 - Default admin display name is RAZI SHAH; a previously saved default "Admin" name is updated automatically.
-- The profile photo is resized and stored in local app data, then shown in the header and printed scorecard.
+- The profile photo is resized and stored in local app data, then shown in the header. The match scorecard does not display it.
 - The CRICDAIRY cricket-ball brand mark remains fixed and cannot be changed, as requested.
 - Profile data is included in the JSON backup/restore.
 
