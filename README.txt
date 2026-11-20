@@ -59,6 +59,7 @@ CRICKET SCORING UPDATE
 - Match bowling figures show that innings' average, economy and strike rate. Undo, Swap, End innings and Finish match sit below the scoring buttons.
 - When a match is completed, the main score area shows the winner and winning margin plus the Player of the Match. Dismissed batters' scorecard entries show the credited bowler; caught, stumped and run-out entries also name the fielder when recorded.
 - Match cards and the live scorer share the complete match summary and scorecards as a PDF file when the browser supports file sharing. If PDF file sharing is unavailable, the app downloads the PDF so it can be opened and shared from device apps.
+- Match History cards include an Edit match frame for title, venue, teams, status, series, date and Player of the Match. Delete match is available inside the edit frame only and asks for confirmation before removing the match.
 - Shared and printed match summaries use a compact match-summary layout: match title and stage, both teams, each innings score and batter list, bowling figures, result, and Player of the Match.
 - PDF batting rows show player name, runs, balls, fours, sixes, strike rate and dismissal in separate columns. Bowling rows show player name, overs, maidens, runs, wickets, average, economy and strike rate in separate columns.
 - After a wicket, the scorer must confirm the incoming batter; after six legal balls, the scorer selects the next bowler (a different one when available). The next delivery stays paused until the required choices are confirmed.

@@ -1,4 +1,4 @@
-let state, currentId=null, currentPlayerId=null, currentTeamId=null, scorecardMatchId=null, scorecardInningsIndex=0, undoStack=[], lang='en', saveRevision=0, pendingDelivery=null, installPromptEvent=null, swipeStart=null, editingTournamentId=null;
+let state, currentId=null, currentPlayerId=null, currentTeamId=null, scorecardMatchId=null, scorecardInningsIndex=0, undoStack=[], lang='en', saveRevision=0, pendingDelivery=null, installPromptEvent=null, swipeStart=null, editingTournamentId=null, editingMatchId=null;
 const $=id=>document.getElementById(id), uid=()=>Math.random().toString(36).slice(2,10);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(s){$('toast').textContent=s;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2300)}
@@ -1188,11 +1188,63 @@ function resumeLatestMatch(){
  if(!match)return toast('No live match to resume');
  currentId=match.id;page('scorer');toast('Saved match resumed');
 }
-function matchCard(m){return `<div class="match-card"><div><b>${esc(m.title)}</b><small>${esc(team(m.teams[0])?.name||'')} vs ${esc(team(m.teams[1])?.name||'')} • ${esc(m.format)} • ${esc(m.status)}${seriesName(m.seriesId)?' • '+esc(seriesName(m.seriesId)):''}</small><small>${m.innings.map((i,index)=>`${index===0?'1st':'2nd'} Innings — ${esc(team(i.batting)?.name||'')}: ${i.runs}/${i.wickets}`).join(' | ')}${m.status==='completed'&&m.result?' • '+esc(m.result):''}</small></div><div class="match-actions"><button data-open="${esc(m.id)}" class="ghost">${m.status==='live'?'Open / Resume':'Summary'}</button><button data-share="${esc(m.id)}" class="ghost">Share PDF</button></div></div>`}
+function matchCard(m,showManagement=false){
+ const editMode=editingMatchId===m.id;
+ const teamOptions=state.teams.map(item=>`<option value="${esc(item.id)}" ${m.teams[0]===item.id?'selected':''}>${esc(item.name)}</option>`).join('');
+ const teamOptionsB=state.teams.map(item=>`<option value="${esc(item.id)}" ${m.teams[1]===item.id?'selected':''}>${esc(item.name)}</option>`).join('');
+ const seriesOptions=state.tournaments.map(series=>`<option value="${esc(series.id)}" ${m.seriesId===series.id?'selected':''}>${esc(series.name)}</option>`).join('');
+ const editMarkup=editMode?`<div class="match-edit-form"><div class="match-edit-grid"><label>Match title (optional)<input id="editMatchTitle-${esc(m.id)}" value="${esc(m.title)}" maxlength="100"></label><label>Venue (optional)<input id="editMatchVenue-${esc(m.id)}" value="${esc(m.venue||'')}" maxlength="100"></label><label>Team A<select id="editMatchTeamA-${esc(m.id)}">${teamOptions}</select></label><label>Team B<select id="editMatchTeamB-${esc(m.id)}">${teamOptionsB}</select></label><label>Status<select id="editMatchStatus-${esc(m.id)}"><option value="live" ${m.status==='live'?'selected':''}>Live</option><option value="completed" ${m.status==='completed'?'selected':''}>Completed</option></select></label><label>Series<select id="editMatchSeries-${esc(m.id)}"><option value="">No series</option>${seriesOptions}</select></label><label>Match date<input id="editMatchDate-${esc(m.id)}" type="date" value="${esc(m.date||'')}"></label><label>Player of the Match<select id="editMatchPOTM-${esc(m.id)}"><option value="">No player selected</option>${matchParticipantIds(m).map(id=>`<option value="${esc(id)}" ${m.playerOfTheMatch===id?'selected':''}>${esc(playerName(id))}</option>`).join('')}</select></label></div><div class="match-edit-actions"><div class="actions"><button class="primary" data-save-match="${esc(m.id)}">Save changes</button><button class="ghost" data-cancel-match="${esc(m.id)}">Cancel</button></div><button class="danger ghost" data-delete-match="${esc(m.id)}">Delete match</button></div></div>`:'';
+ return `<div class="match-card"><div><b>${esc(m.title)}</b><small>${esc(team(m.teams[0])?.name||'')} vs ${esc(team(m.teams[1])?.name||'')} • ${esc(m.format)} • ${esc(m.status)}${seriesName(m.seriesId)?' • '+esc(seriesName(m.seriesId)):''}</small><small>${m.innings.map((i,index)=>`${index===0?'1st':'2nd'} Innings — ${esc(team(i.batting)?.name||'')}: ${i.runs}/${i.wickets}`).join(' | ')}${m.status==='completed'&&m.result?' • '+esc(m.result):''}</small></div><div class="match-actions"><button data-open="${esc(m.id)}" class="ghost">${m.status==='live'?'Open / Resume':'Summary'}</button>${showManagement?`<button data-edit-match="${esc(m.id)}" class="ghost">${editMode?'Close edit':'Edit match'}</button>`:''}<button data-share="${esc(m.id)}" class="ghost">Share PDF</button></div>${showManagement?editMarkup:''}</div>`;
+}
 function seriesName(id){return state.tournaments.find(s=>s.id===id)?.name||''}
-function bindCards(){document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{currentId=b.dataset.open;page('scorer')});document.querySelectorAll('[data-share]').forEach(b=>b.onclick=()=>{currentId=b.dataset.share;shareMatch()})}
-function renderLive(){$('liveMatches').innerHTML=state.matches.filter(m=>m.status==='live').map(matchCard).join('')||'No live matches.';bindCards()}
-function renderHistory(){const q=($('historySearch')?.value||'').toLowerCase();const arr=state.matches.filter(m=>(m.title+' '+m.venue+' '+m.teams.map(id=>team(id)?.name).join(' ')).toLowerCase().includes(q));$('historyList').innerHTML=arr.map(matchCard).join('')||'No matching matches.';bindCards()}
+function bindCards(){
+ document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{currentId=b.dataset.open;page('scorer')});
+ document.querySelectorAll('[data-share]').forEach(b=>b.onclick=()=>{currentId=b.dataset.share;shareMatch()});
+ document.querySelectorAll('[data-edit-match]').forEach(b=>b.onclick=()=>{editingMatchId=editingMatchId===b.dataset.editMatch?null:b.dataset.editMatch;renderHistory();renderLive();});
+ document.querySelectorAll('[data-save-match]').forEach(b=>b.onclick=()=>saveMatchEdit(b.dataset.saveMatch));
+ document.querySelectorAll('[data-cancel-match]').forEach(b=>b.onclick=()=>{editingMatchId=null;renderHistory();renderLive();});
+ document.querySelectorAll('[data-delete-match]').forEach(b=>b.onclick=()=>deleteMatchEdit(b.dataset.deleteMatch));
+}
+function saveMatchEdit(matchId){
+ const m=state.matches.find(match=>match.id===matchId);
+ if(!m)return toast('Match not found');
+ const title=$(`editMatchTitle-${m.id}`).value.trim();
+ const venue=$(`editMatchVenue-${m.id}`).value.trim();
+ const teamA=$(`editMatchTeamA-${m.id}`).value;
+ const teamB=$(`editMatchTeamB-${m.id}`).value;
+ const status=$(`editMatchStatus-${m.id}`).value;
+ const seriesId=$(`editMatchSeries-${m.id}`).value;
+ const date=$(`editMatchDate-${m.id}`).value;
+ const playerOfTheMatch=$(`editMatchPOTM-${m.id}`).value||null;
+ if(!team(teamA)||!team(teamB)||teamA===teamB)return toast('Select two different teams');
+ const oldTeams=[...m.teams];
+ const teamMap=new Map([[oldTeams[0],teamA],[oldTeams[1],teamB]]);
+ m.teams=[teamA,teamB];
+ m.lineups=m.lineups||{};
+ const oldLineups={...(m.lineups||{})};
+ m.lineups={[teamA]:Array.isArray(oldLineups[oldTeams[0]])?[...oldLineups[oldTeams[0]]]:[],[teamB]:Array.isArray(oldLineups[oldTeams[1]])?[...oldLineups[oldTeams[1]]]:[]};
+ (m.innings||[]).forEach(inn=>{
+  inn.batting=teamMap.get(inn.batting)||inn.batting;
+  inn.bowling=teamMap.get(inn.bowling)||inn.bowling;
+ });
+ m.title=title||`${team(teamA)?.name||'Team'} vs ${team(teamB)?.name||'Team'}`;
+ m.venue=venue;m.status=status==='completed'?'completed':'live';m.seriesId=seriesId;m.date=date||m.date||'';
+ m.playerOfTheMatch=playerOfTheMatch;
+ if(m.status==='completed')m.result=matchResult(m);
+ editingMatchId=null;
+ save();renderAll();toast('Match updated.');
+}
+function deleteMatchEdit(matchId){
+ const m=state.matches.find(match=>match.id===matchId);
+ if(!m)return toast('Match not found');
+ if(!confirm(`Delete "${m.title}" from match history? This cannot be undone.`))return;
+ state.matches=state.matches.filter(match=>match.id!==matchId);
+ if(currentId===matchId)currentId=null;
+ editingMatchId=null;
+ save();renderAll();toast('Match deleted.');
+}
+function renderLive(){$('liveMatches').innerHTML=state.matches.filter(m=>m.status==='live').map(m=>matchCard(m,false)).join('')||'No live matches.';bindCards()}
+function renderHistory(){const q=($('historySearch')?.value||'').toLowerCase();const arr=state.matches.filter(m=>(m.title+' '+m.venue+' '+m.teams.map(id=>team(id)?.name).join(' ')).toLowerCase().includes(q));$('historyList').innerHTML=arr.map(m=>matchCard(m,true)).join('')||'No matching matches.';bindCards()}
 function emptyPlayerStats(){
  return {matches:new Set(),battingInnings:0,notOuts:0,runs:0,balls:0,outs:0,fours:0,sixes:0,highScore:null,highScoreNotOut:false,centuries:0,fifties:0,ducks:0,battingDots:0,bowlingInnings:0,ballsBowled:0,runsConceded:0,wickets:0,maidens:0,wides:0,noBalls:0,bowlingDots:0,bestWickets:0,bestRuns:0,threeWicketHauls:0,fiveWicketHauls:0,catches:0,stumpings:0,runOuts:0,playerOfTheMatchAwards:0};
 }
