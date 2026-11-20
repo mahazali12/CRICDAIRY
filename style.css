@@ -86,8 +86,6 @@
 .match-player-panel summary::-webkit-details-marker{display:none}
 .match-player-panel summary b,.match-player-panel summary small{display:block}
 .match-player-panel summary small{margin-top:4px;color:var(--muted)}
-.match-player-panel summary::after{content:"＋";float:right;margin-top:-30px;color:var(--green);font-size:20px}
-.match-player-panel[open] summary::after{content:"−"}
 .match-player-content{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
 .match-player-section{min-width:0;padding:14px;background:var(--panel2);border-radius:11px}
 .match-player-section h3{margin-top:0}
@@ -102,6 +100,59 @@
 #scorer>.scoring-layout>.panel:first-child{grid-column:2;grid-row:2;margin:0;padding:14px;min-width:0}
 #scorer .selected-extra{border-color:var(--green);box-shadow:0 0 0 1px var(--green)}
 @media print{#scorer>.score-hero{display:flex!important}#scorer>.score-hero>div:first-child,#scorer>.score-hero>#targetBox{background:white!important;color:#111!important;border:1px solid #bbb} }
+
+.live-scoring-summary{display:none}
+@media(max-width:650px){
+ body.scoring-screen #sidebar{display:none!important}
+ #scorer.page.active{display:block;padding:0 12px calc(43vh + env(safe-area-inset-bottom));max-width:none}
+ #scorer>.section-head{position:sticky;top:0;z-index:8;margin:0 -12px 10px;padding:10px 12px;background:#0b1522;border-bottom:1px solid var(--line)}
+ #scorer>.section-head .eyebrow,#scorer>#matchMeta{display:none}
+ #scorer>.section-head h1{font-size:17px}
+ #scorer>.score-hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:8px;padding:12px;border-radius:12px}
+ #scorer>.score-hero>div:first-child{grid-column:1;grid-row:1;display:flex;flex-direction:column;justify-content:center;min-width:0;margin:0;padding:0;background:transparent;border:0}
+ #scorer>.score-hero .big-score{font-size:clamp(34px,10vw,44px);letter-spacing:-1px;white-space:nowrap}
+ #scorer>.score-hero>#inningsLabel{font-size:11px;line-height:1.3}
+ #scorer>.score-hero>#oversText{margin:4px 0 0;font-size:12px}
+ #scorer>.score-hero>#targetBox{grid-column:2;grid-row:1;display:grid;grid-template-columns:minmax(0,1fr) auto;align-content:center;gap:4px 8px;padding:0;background:transparent;border:0;font-size:11px}
+ #scorer>.score-hero>#targetBox #runRate{grid-column:2;grid-row:1;font-size:17px}
+ #scorer>.score-hero>#targetBox #targetText{grid-column:1/-1;grid-row:2}
+ #scorer>.score-hero>#targetBox #requiredRunRate{grid-column:1/-1;grid-row:3}
+ #scorer>.score-hero>#targetBox .win-prediction{grid-column:1/-1;min-width:0;max-width:none;margin:5px 0 0;padding-top:5px}
+ #scorer>.score-hero>#targetBox .win-prediction>small:first-child{font-size:9px}
+ #scorer>.score-hero>#targetBox .win-prediction>b{font-size:11px}
+ #scorer>.score-hero>#targetBox #winPredictionTeams{font-size:9px}
+ .live-scoring-summary{display:grid;gap:8px;margin:10px 0}
+ .recent-deliveries,.live-score-table{min-width:0;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:11px}
+ .recent-deliveries>small{display:block;margin-bottom:7px;color:var(--muted);font-size:10px;text-transform:uppercase}
+ #recentBalls{display:flex;gap:6px;overflow-x:auto}
+ .recent-ball{display:grid;place-items:center;flex:0 0 34px;height:34px;border-radius:7px;background:#1c3425;font-weight:750}
+ .recent-ball.wicket{background:var(--red);color:white}
+ .recent-ball.empty-ball{color:var(--muted)}
+ .live-score-tables{display:grid;gap:8px}
+ .live-score-table h3{margin:0 0 7px;font-size:13px}
+ .live-score-table table{min-width:540px;font-size:10px}
+ .live-score-table th,.live-score-table td{padding:7px 8px;white-space:nowrap}
+ .live-score-table th{background:#173723}
+ .live-score-table .current-batter td:first-child{font-weight:800;color:var(--green)}
+ #scorer>.player-strip{display:none}
+ #scorer>.scoring-layout{display:block}
+ #scorer>.scoring-layout>.panel:first-child{position:fixed;left:0;right:0;bottom:0;z-index:12;display:flex;flex-direction:column;gap:7px;max-height:43vh;overflow-y:auto;margin:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-radius:16px 16px 0 0}
+ #scorer>.scoring-layout>.panel:first-child>h3{display:none}
+ #scorer>.scoring-layout>.panel:first-child>.controls{order:0;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:0}
+ #scorer>.scoring-layout>.panel:first-child>.controls button{padding:8px 3px;font-size:12px}
+ #scorer>.scoring-layout>.panel:first-child>.controls #finishMatch{grid-column:1/-1}
+ #scorer>.scoring-layout>.panel:first-child>.run-grid{order:1;grid-template-columns:repeat(6,minmax(0,1fr));gap:5px;margin:0}
+ #scorer>.scoring-layout>.panel:first-child>.run-grid button{padding:10px 2px;font-size:17px}
+ #scorer>.scoring-layout>.panel:first-child>.button-grid:not(.controls){order:2;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin:0}
+ #scorer>.scoring-layout>.panel:first-child>.button-grid:not(.controls) button{padding:8px 2px;font-size:11px}
+ #scorer>.scoring-layout>.panel:first-child>#wicketBtn{order:3;padding:8px;margin:0}
+ #scorer>.scoring-layout>.panel:first-child>#deliveryPanel{order:4;margin:0;padding:10px}
+ #scorer>.scoring-layout>.panel:first-child>#wicketPanel{order:5;margin:0;padding:10px}
+ #scorer>.scoring-layout>.panel:last-child{margin:10px 0}
+ #scorer:not(.more-controls-open)>.scoring-layout>.panel:last-child,#scorer:not(.more-controls-open)>#matchPlayerPanel{display:none!important}
+ #scorer.more-controls-open>.scoring-layout>.panel:last-child{display:block}
+ #scorer.more-controls-open>#matchPlayerPanel:not(.hidden){display:block}
+}
 
 /* Admin profile and fixed CRICDAIRY branding */
 .profile-avatar{display:inline-flex;align-items:center;justify-content:center;object-fit:cover;border-radius:50%;background:linear-gradient(145deg,#1b6338,#10271a);border:2px solid #35d879;color:#eaffef}
