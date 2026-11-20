@@ -123,3 +123,19 @@ body{background:#06331e}
 @media(max-width:520px){.page{padding:16px}}
 @media(display-mode:standalone){.home-screen{padding-top:calc(18px + env(safe-area-inset-top));padding-bottom:calc(18px + env(safe-area-inset-bottom))}}
 @media print{.home-screen{display:none!important}}
+.ranking-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-top:18px}
+.ranking-grid h4{margin:8px 0;color:var(--green)}
+.player-stat-link,.team-stat-link{padding:0;border:0;border-radius:0;background:transparent;color:var(--green);font:inherit;font-weight:700;text-align:left}
+.player-stat-link:hover,.team-stat-link:hover{background:transparent;text-decoration:underline;transform:none}
+.player-profile-heading{display:flex;align-items:center;gap:18px;margin-bottom:16px}
+.player-profile-heading h2{margin:0 0 6px}
+.player-profile-heading p{margin:0 0 8px;color:var(--muted)}
+.player-profile-photo{width:88px;height:88px;flex:0 0 88px;border-radius:50%;object-fit:cover;border:2px solid var(--green)}
+.player-profile-initial{display:grid;place-items:center;background:var(--panel2);color:var(--green);font-size:34px;font-weight:800}
+.profile-stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin:16px 0}
+.profile-stat-grid .stat{min-width:0}
+.profile-stat-grid .stat strong{font-size:20px;overflow-wrap:anywhere}
+.team-roster{margin:16px 0}
+.team-roster h3{margin-top:0}
+.team-roster .player-stat-link{margin:4px 0}
+@media(max-width:520px){.stats-actions{min-width:0;flex-direction:column;align-items:stretch}.stats-actions select{width:100%}.player-profile-heading{align-items:flex-start}.player-profile-photo{width:64px;height:64px;flex-basis:64px}.profile-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}

@@ -12,7 +12,7 @@ RUN LOCALLY
 5. For future use, open the same local address. Do not move/delete the folder while using this local server.
 
 IMPORTANT
-- The app opens directly to a full-screen English menu for teams/playing XI, new and live matches, resume, history, tournaments, reports/backup and settings/help. Pages are opened from this menu and the Main Menu button returns here. It automatically saves to IndexedDB with a previous-state recovery copy and localStorage fallback. Data is local to this browser profile and computer.
+- The app opens directly to a full-screen English menu for teams/playing XI, player statistics and rankings, team statistics, new and live matches, resume, history, tournaments, reports/backup and settings/help. Swipe right from the left edge on touch screens, or press Escape on desktop, to return to the menu. It automatically saves to IndexedDB with a previous-state recovery copy and localStorage fallback. Data is local to this browser profile and computer.
 - No login is required. App data is stored locally in this browser without encryption; protect your device and keep backups private.
 - Export JSON backups from Reports & Backup for a separate copy or to move data to another computer. Browsers do not permit silent writes to arbitrary backup files.
 - CSV export opens in Excel. Use Print > Save as PDF for scorecards.
@@ -29,12 +29,12 @@ wait for the scorer to start the next innings. Targets and run rates update duri
 are saved to history automatically, and history cards can share the summary.
 The app also includes a web app manifest, standalone display mode, and offline service-worker cache for phone installation. The home menu uses a full-screen background image, and its square icon is also used for browser and installed-app icons.
 - Player career records include batting, bowling and recorded fielding figures, including appearances, averages, strike/economy rates, best score/figures, 50s/100s, maidens, boundaries, dots, catches, stumpings, run outs and Player of the Match awards. Select a fielder for catches, stumpings and run outs so those fielding figures are credited.
+- Player names open individual career profiles with match-by-match figures; team names open team profiles with rosters, match history and records. Player rankings show run scorers, wicket takers and fielders. Team standings award 2 points for a win and 1 for a tie.
 
 Planned/partial modules requiring further development:
 - Full Test match multi-innings and follow-on enforcement
 - Super Over workflow and tie-break rules
 - Automatic fixture scheduling and NRR-based tournament tables
-- Player rankings, comparison and head-to-head
 - Wagon wheel, charts, sound effects and celebration animations
 - Full Urdu translation, PDF templates, certificates and logo upload
 - Maidens, bowling strike/economy edge cases, run-out crossing and full laws-based dismissal validation

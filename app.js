@@ -1,4 +1,4 @@
-let state, currentId=null, undoStack=[], lang='en', saveRevision=0, pendingDelivery=null, installPromptEvent=null;
+let state, currentId=null, currentPlayerId=null, currentTeamId=null, undoStack=[], lang='en', saveRevision=0, pendingDelivery=null, installPromptEvent=null, swipeStart=null;
 const $=id=>document.getElementById(id), uid=()=>Math.random().toString(36).slice(2,10);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(s){$('toast').textContent=s;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2300)}
@@ -34,11 +34,16 @@ function save(){
  renderAll();
  return saving;
 }
-function page(p){
+function page(p,recordHistory=true){
+ if(recordHistory&&p==='home'&&history.state?.cricdairyApp&&history.state.screen!=='home')history.back();
+ else if(recordHistory&&p!=='home')history.pushState({cricdairyApp:true,screen:p},'',location.href);
  document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===p));
  $('home').classList.toggle('hidden',p!=='home');
  $('appHeader').classList.toggle('hidden',p==='home');
  if(p==='scorer')renderScorer();
+ if(p==='playerProfile')renderPlayerProfile();
+ if(p==='teamStats')renderTeamStats();
+ if(p==='teamProfile')renderTeamProfile();
 }
 function activeMatch(){return state.matches.find(m=>m.id===currentId)}
 function team(id){return state.teams.find(t=>t.id===id)}
@@ -47,6 +52,8 @@ function modeLabel(mode){return ({standard:'Standard',single:'Single wicket',dou
 function addTeam(name){if(!name.trim())return;state.teams.push({id:uid(),name:name.trim()});save()}
 function init(){
  state=window.__initialState||null;
+ history.replaceState({cricdairyApp:true,screen:'home'},'',location.href);
+ window.addEventListener('popstate',()=>{page('home',false);history.replaceState({cricdairyApp:true,screen:'home'},'',location.href)});
  Store.init().then(data=>{state=normalizeState(data||Store.defaults());lang='en';$('matchDate').value=new Date().toISOString().slice(0,10);renderAll();setup();if(!data?.settings?.profileName||data.settings.profileName==='Admin'||data?.settings?.login!==undefined||data?.settings?.password!==undefined||data?.settings?.lang!=='en')Store.save(state).then(ok=>{if(ok)$('saveStatus').textContent='Saved on this device'});if(navigator.storage?.persist)navigator.storage.persist().catch(()=>{});});
 }
 function normalizeState(data){
@@ -85,8 +92,9 @@ function setup(){
  $('saveDisplayPhoto').onclick=saveDisplayPhoto;
  $('resetDisplayPhoto').onclick=()=>{state.settings.displayPhoto='./assets/app-display.jpg';$('displayPhotoInput').value='';save();toast('Original display picture restored')};
  $('removeProfilePhoto').onclick=()=>{state.settings.profilePhoto='./assets/admin-profile.jpg';$('profilePhotoInput').value='';save();toast('Original profile picture restored')};
- $('mainMenu').onclick=()=>page('home');
  $('menuTeams').onclick=()=>page('teams');
+ $('menuPlayerStats').onclick=()=>{page('teams');$('playerStatsPanel').scrollIntoView({behavior:'smooth'})};
+ $('menuTeamStats').onclick=()=>page('teamStats');
  $('menuNewMatch').onclick=()=>page('newmatch');
  $('menuResumeMatch').onclick=resumeLatestMatch;
  $('menuLive').onclick=()=>page('live');
@@ -95,9 +103,19 @@ function setup(){
  $('menuReports').onclick=()=>page('reports');
  $('menuSettings').onclick=()=>page('settings');
  $('menuLoadMatch').onclick=()=>page('history');
- $('addTeam').onclick=()=>{addTeam($('newTeamName').value);$('newTeamName').value='';toast('Team added')};
+ document.addEventListener('touchstart',event=>{
+  swipeStart=event.touches.length===1&&event.touches[0].clientX<=64?{x:event.touches[0].clientX,y:event.touches[0].clientY}:null;
+ },{passive:true});
+ document.addEventListener('touchend',event=>{
+  if(!swipeStart||!event.changedTouches.length)return;
+  const dx=event.changedTouches[0].clientX-swipeStart.x,dy=event.changedTouches[0].clientY-swipeStart.y;
+  swipeStart=null;
+  if($('home').classList.contains('hidden')&&dx>=90&&dx>Math.abs(dy)*1.4)page('home');
+ },{passive:true});
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('home').classList.contains('hidden'))page('home')});
+ $('addTeam').onclick=()=>{const name=$('newTeamName').value.trim();if(!name)return toast('Enter a team name');addTeam(name);$('newTeamName').value='';renderAll();toast('Team added')};
  $('addQuickTeam').onclick=()=>{page('teams');$('newTeamName').focus();toast('Enter the team name, then select Add')};
- $('addPlayer').onclick=async()=>{const name=$('newPlayerName').value.trim(),teamId=$('playerTeam').value;if(!name||!teamId)return toast('Enter player name and team');const f=$('playerPhoto').files[0];const photo=f&&f.type.startsWith('image/')?await resizeImage(f,320):'';state.players.push({id:uid(),name,teamId,role:$('playerRole').value,photo,stats:{runs:0,balls:0,wickets:0,matches:0}});$('newPlayerName').value='';$('playerPhoto').value='';save();toast('Player added')};
+ $('addPlayer').onclick=async()=>{const name=$('newPlayerName').value.trim(),teamId=$('playerTeam').value;if(!name||!teamId)return toast('Enter player name and team');const f=$('playerPhoto').files[0];const photo=f&&f.type.startsWith('image/')?await resizeImage(f,320):'';state.players.push({id:uid(),name,teamId,role:$('playerRole').value,photo,stats:{runs:0,balls:0,wickets:0,matches:0}});$('newPlayerName').value='';$('playerPhoto').value='';save();renderAll();toast('Player added')};
  $('startMatch').onclick=startMatch;
  $('matchMode').onchange=()=>{updateMatchModeInfo();renderPlayingPlayerSelectors()};
  $('teamA').onchange=()=>{updateMatchModeInfo();renderPlayingPlayerSelectors()};
@@ -167,7 +185,7 @@ function fillTeamSelects(){
  const opts=state.teams.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join('');
  ['teamA','teamB','tossWinner','playerTeam'].forEach(id=>$(id).innerHTML=opts);
  $('tossWinner').innerHTML='<option value="">Select toss winner</option>'+opts;
- $('matchSeries').innerHTML='<option value="">No series</option>'+state.tournaments.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
+ $('matchSeries').innerHTML='<option value="">Select series (optional)</option>'+state.tournaments.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
  Object.keys(selected).forEach(id=>{
   if(Array.from($(id).options).some(option=>option.value===selected[id]))$(id).value=selected[id];
  });
@@ -582,7 +600,7 @@ function renderPlayerStats(){
   const score=s=>value==='average'?average(s):value==='strike'?strike(s):value==='matches'?s.matches.size:s[value]||0;
   return score(b.s)-score(a.s)||a.p.name.localeCompare(b.p.name);
  });
- const playerCell=({p})=>`<b>${esc(p.name)}</b><br><small>${esc(team(p.teamId)?.name||'—')} • ${esc(p.role||'')}</small>`;
+ const playerCell=({p})=>`<button type="button" class="player-stat-link" data-player-profile="${esc(p.id)}">${esc(p.name)}</button><br><small>${esc(team(p.teamId)?.name||'—')} • ${esc(p.role||'')}</small>`;
  const batting=players.map(({p,s})=>`<tr><td>${playerCell({p})}</td><td>${s.matches.size}</td><td>${s.battingInnings}</td><td>${s.notOuts}</td><td>${s.runs}</td><td>${s.highScore===null?'—':`${s.highScore}${s.highScoreNotOut?'*':''}`}</td><td>${s.outs?(s.runs/s.outs).toFixed(2):'—'}</td><td>${s.balls}</td><td>${s.balls?(s.runs/s.balls*100).toFixed(2):'0.00'}</td><td>${s.centuries}</td><td>${s.fifties}</td><td>${s.fours}</td><td>${s.sixes}</td><td>${s.ducks}</td><td>${s.battingDots}</td></tr>`).join('');
  const bowling=players.map(({p,s})=>{
   const overs=`${Math.floor(s.ballsBowled/6)}.${s.ballsBowled%6}`,average=s.wickets?(s.runsConceded/s.wickets).toFixed(2):'—',economy=s.ballsBowled?(s.runsConceded/(s.ballsBowled/6)).toFixed(2):'0.00',strike=s.wickets?(s.ballsBowled/s.wickets).toFixed(2):'—';
@@ -593,9 +611,79 @@ function renderPlayerStats(){
   <h3>Batting</h3><div class="table-wrap"><table><thead><tr><th>Player / Team</th><th>Mat</th><th>Inn</th><th>NO</th><th>Runs</th><th>HS</th><th>Avg</th><th>BF</th><th>SR</th><th>100s</th><th>50s</th><th>4s</th><th>6s</th><th>Ducks</th><th>Dots</th></tr></thead><tbody>${batting}</tbody></table></div>
   <h3>Bowling</h3><div class="table-wrap"><table><thead><tr><th>Player / Team</th><th>Inn</th><th>Overs</th><th>M</th><th>Runs</th><th>Wkts</th><th>Best</th><th>Avg</th><th>Econ</th><th>SR</th><th>3W</th><th>5W</th><th>Wd</th><th>Nb</th><th>Dots</th></tr></thead><tbody>${bowling}</tbody></table></div>
   <h3>Fielding & Awards</h3><div class="table-wrap"><table><thead><tr><th>Player / Team</th><th>Catches</th><th>Stumpings</th><th>Run outs</th><th>Total dismissals</th><th>Player of the Match</th></tr></thead><tbody>${fielding}</tbody></table></div>`:`<p class="muted">No player statistics found.</p>`;
+ const ranked=key=>[...players].sort((a,b)=>b.s[key]-a.s[key]||a.p.name.localeCompare(b.p.name)).slice(0,10).map(({p,s},index)=>`<tr><td>${index+1}</td><td><button type="button" class="player-stat-link" data-player-profile="${esc(p.id)}">${esc(p.name)}</button></td><td>${s[key]}</td><td>${esc(team(p.teamId)?.name||'—')}</td></tr>`).join('');
+ $('playerRankings').innerHTML=players.length?`<h3>Player Rankings</h3><div class="ranking-grid"><div><h4>Top Run Scorers</h4><div class="table-wrap"><table><thead><tr><th>Rank</th><th>Player</th><th>Runs</th><th>Team</th></tr></thead><tbody>${ranked('runs','runs')}</tbody></table></div></div><div><h4>Top Wicket Takers</h4><div class="table-wrap"><table><thead><tr><th>Rank</th><th>Player</th><th>Wickets</th><th>Team</th></tr></thead><tbody>${ranked('wickets','wickets')}</tbody></table></div></div><div><h4>Top Fielders</h4><div class="table-wrap"><table><thead><tr><th>Rank</th><th>Player</th><th>Dismissals</th><th>Team</th></tr></thead><tbody>${[...players].sort((a,b)=>(b.s.catches+b.s.stumpings+b.s.runOuts)-(a.s.catches+a.s.stumpings+a.s.runOuts)||a.p.name.localeCompare(b.p.name)).slice(0,10).map(({p,s},index)=>`<tr><td>${index+1}</td><td><button type="button" class="player-stat-link" data-player-profile="${esc(p.id)}">${esc(p.name)}</button></td><td>${s.catches+s.stumpings+s.runOuts}</td><td>${esc(team(p.teamId)?.name||'—')}</td></tr>`).join('')}</tbody></table></div></div></div>`:'';
+ document.querySelectorAll('[data-player-profile]').forEach(button=>button.onclick=()=>{currentPlayerId=button.dataset.playerProfile;page('playerProfile')});
+}
+function renderPlayerProfile(){
+ const player=state.players.find(item=>item.id===currentPlayerId);
+ if(!player){$('playerProfileContent').innerHTML='<p class="muted">Player not found.</p>';return}
+ const stats=playerCareerStats().get(player.id)||emptyPlayerStats(),average=stats.outs?(stats.runs/stats.outs).toFixed(2):'—',strike=stats.balls?(stats.runs/stats.balls*100).toFixed(2):'0.00';
+ const photo=player.photo?`<img class="player-profile-photo" src="${esc(player.photo)}" alt="${esc(player.name)}">`:`<div class="player-profile-photo player-profile-initial">${esc((player.name.trim()[0]||'P').toUpperCase())}</div>`;
+ const matches=state.matches.filter(match=>match.playerOfTheMatch===player.id||Object.values(match.lineups||{}).some(lineup=>Array.isArray(lineup)&&lineup.includes(player.id))||match.innings?.some(inn=>inn.batters?.[player.id]||inn.bowlers?.[player.id]||(inn.balls||[]).some(ball=>ball.fielderId===player.id)));
+ const rows=matches.map(match=>{
+  const batting=[],bowling=[];let catches=0,stumpings=0,runOuts=0;
+  (match.innings||[]).forEach((inn,index)=>{
+   const bat=inn.batters?.[player.id];
+   if(bat)batting.push(`${index+1}${index===0?'st':index===1?'nd':'th'}: ${Number(bat.runs)||0} (${Number(bat.balls)||0})${bat.out?' out':'*'}`);
+   const bowl=inn.bowlers?.[player.id];
+   if(bowl)bowling.push(`${index+1}${index===0?'st':index===1?'nd':'th'}: ${Math.floor((Number(bowl.legal)||0)/6)}.${(Number(bowl.legal)||0)%6}-${Number(bowl.runs)||0}-${Number(bowl.wickets)||0}`);
+   (inn.balls||[]).filter(ball=>ball.fielderId===player.id).forEach(ball=>{if(ball.wicket==='Caught')catches++;else if(ball.wicket==='Stumped')stumpings++;else if(ball.wicket==='Run Out')runOuts++});
+  });
+  const opponent=(match.teams||[]).filter(id=>id!==player.teamId).map(id=>team(id)?.name||'Team').join(', ')||'—';
+  return `<tr><td>${esc(match.title||'Match')}</td><td>${esc(match.date||'—')}</td><td>${esc(opponent)}</td><td>${esc(match.status||'')}</td><td>${batting.join('<br>')||'—'}</td><td>${bowling.join('<br>')||'—'}</td><td>${catches} / ${stumpings} / ${runOuts}</td><td>${match.playerOfTheMatch===player.id?'Yes':'—'}</td></tr>`;
+ }).join('');
+ $('playerProfileTitle').textContent=player.name;
+ $('playerProfileContent').innerHTML=`<div class="panel player-profile-heading">${photo}<div><h2>${esc(player.name)}</h2><p>${esc(team(player.teamId)?.name||'—')} • ${esc(player.role||'Player')}</p><small>${stats.matches.size} matches • ${stats.playerOfTheMatchAwards} Player of the Match awards</small></div></div><div class="profile-stat-grid"><div class="stat"><small>Runs / High score</small><strong>${stats.runs} / ${stats.highScore===null?'—':`${stats.highScore}${stats.highScoreNotOut?'*':''}`}</strong></div><div class="stat"><small>Batting average / strike rate</small><strong>${average} / ${strike}</strong></div><div class="stat"><small>Wickets / Best</small><strong>${stats.wickets} / ${stats.bestWickets?`${stats.bestWickets}/${stats.bestRuns}`:'—'}</strong></div><div class="stat"><small>Economy / overs</small><strong>${stats.ballsBowled?(stats.runsConceded/(stats.ballsBowled/6)).toFixed(2):'0.00'} / ${Math.floor(stats.ballsBowled/6)}.${stats.ballsBowled%6}</strong></div><div class="stat"><small>4s / 6s / 50s / 100s</small><strong>${stats.fours} / ${stats.sixes} / ${stats.fifties} / ${stats.centuries}</strong></div><div class="stat"><small>Catches / stumpings / run outs</small><strong>${stats.catches} / ${stats.stumpings} / ${stats.runOuts}</strong></div></div><div class="panel table-wrap"><h3>Match-by-match record</h3><table><thead><tr><th>Match</th><th>Date</th><th>Opponent</th><th>Status</th><th>Batting</th><th>Bowling</th><th>C / S / RO</th><th>POTM</th></tr></thead><tbody>${rows||'<tr><td colspan="8">No match records yet.</td></tr>'}</tbody></table></div>`;
+}
+function teamCareerStats(){
+ const records=new Map(state.teams.map(item=>[item.id,{played:0,wins:0,losses:0,ties:0,noResults:0,runsFor:0,runsAgainst:0,ballsFaced:0,ballsBowled:0,highest:0,matches:[]}]));
+ state.matches.forEach(match=>{
+  (match.teams||[]).forEach(id=>records.get(id)?.matches.push(match));
+  (match.innings||[]).forEach(inn=>{
+   const record=records.get(inn.batting);
+   if(record){record.runsFor+=Number(inn.runs)||0;record.ballsFaced+=Number(inn.legal)||0;record.highest=Math.max(record.highest,Number(inn.runs)||0)}
+   const bowling=records.get(inn.bowling);
+   if(bowling){bowling.runsAgainst+=Number(inn.runs)||0;bowling.ballsBowled+=Number(inn.legal)||0}
+  });
+  if(match.status!=='completed')return;
+  const first=match.innings?.[0],second=match.innings?.[1];
+  if(!first||!second){(match.teams||[]).forEach(id=>{const record=records.get(id);if(record)record.noResults++});return}
+  const winner=first.runs===second.runs?null:second.runs>first.runs?second.batting:first.batting;
+  (match.teams||[]).forEach(id=>{
+   const record=records.get(id);if(!record)return;
+   record.played++;
+   if(!winner)record.ties++;
+   else if(winner===id)record.wins++;
+   else record.losses++;
+  });
+ });
+ return records;
+}
+function renderTeamStats(){
+ const records=teamCareerStats(),rows=[...records.entries()].sort((a,b)=>{
+  const points=r=>r.wins*2+r.ties,percent=r=>r.played?(r.wins+r.ties/2)/r.played:0;
+  return points(b[1])-points(a[1])||percent(b[1])-percent(a[1])||b[1].runsFor-a[1].runsFor||(team(a[0])?.name||'').localeCompare(team(b[0])?.name||'');
+ });
+ $('teamStatsContent').innerHTML=rows.length?`<div class="table-wrap"><table><thead><tr><th>Rank</th><th>Team</th><th>Played</th><th>Won</th><th>Lost</th><th>Tied</th><th>No result</th><th>Points</th><th>Win %</th><th>Runs for / against</th><th>Highest innings</th></tr></thead><tbody>${rows.map(([id,r],index)=>`<tr><td>${index+1}</td><td><button type="button" class="team-stat-link" data-team-profile="${esc(id)}">${esc(team(id)?.name||'Team')}</button></td><td>${r.played}</td><td>${r.wins}</td><td>${r.losses}</td><td>${r.ties}</td><td>${r.noResults}</td><td>${r.wins*2+r.ties}</td><td>${r.played?((r.wins+r.ties/2)*100/r.played).toFixed(1):'0.0'}%</td><td>${r.runsFor} / ${r.runsAgainst}</td><td>${r.highest}</td></tr>`).join('')}</tbody></table></div><p class="hint">Rankings use 2 points per win and 1 per tie; teams without a completed match have no result points yet.</p>`:'<p class="muted">Add teams to see team statistics and rankings.</p>';
+ document.querySelectorAll('[data-team-profile]').forEach(button=>button.onclick=()=>{currentTeamId=button.dataset.teamProfile;page('teamProfile')});
+}
+function renderTeamProfile(){
+ const selectedTeam=team(currentTeamId),record=teamCareerStats().get(currentTeamId);
+ if(!selectedTeam||!record){$('teamProfileContent').innerHTML='<p class="muted">Team not found.</p>';return}
+ const battingRate=record.ballsFaced?(record.runsFor/(record.ballsFaced/6)).toFixed(2):'0.00',bowlingRate=record.ballsBowled?(record.runsAgainst/(record.ballsBowled/6)).toFixed(2):'0.00';
+ const matches=record.matches.slice().sort((a,b)=>(b.created||0)-(a.created||0)).map(match=>{
+  const scores=(match.innings||[]).map(inn=>`${esc(team(inn.batting)?.name||'Team')}: ${inn.runs}/${inn.wickets}`).join(' • ')||'No score yet';
+  return `<tr><td>${esc(match.title||'Match')}</td><td>${esc(match.date||'—')}</td><td>${scores}</td><td>${esc(match.status||'')}</td><td>${esc(match.result||'—')}</td></tr>`;
+ }).join('');
+ const roster=playersFor(selectedTeam.id).map(player=>`<button type="button" class="player-stat-link" data-player-profile="${esc(player.id)}">${esc(player.name)}</button> <small>${esc(player.role||'')}</small>`).join(' • ')||'<span class="muted">No players on this team yet.</span>';
+ $('teamProfileTitle').textContent=selectedTeam.name;
+ $('teamProfileContent').innerHTML=`<div class="profile-stat-grid"><div class="stat"><small>Played / won / lost</small><strong>${record.played} / ${record.wins} / ${record.losses}</strong></div><div class="stat"><small>Tied / no result</small><strong>${record.ties} / ${record.noResults}</strong></div><div class="stat"><small>Points / win percentage</small><strong>${record.wins*2+record.ties} / ${record.played?((record.wins+record.ties/2)*100/record.played).toFixed(1):'0.0'}%</strong></div><div class="stat"><small>Runs for / against</small><strong>${record.runsFor} / ${record.runsAgainst}</strong></div><div class="stat"><small>Batting / bowling run rate</small><strong>${battingRate} / ${bowlingRate}</strong></div><div class="stat"><small>Highest innings</small><strong>${record.highest}</strong></div></div><div class="panel team-roster"><h3>Players</h3><div>${roster}</div></div><div class="panel table-wrap"><h3>Match history</h3><table><thead><tr><th>Match</th><th>Date</th><th>Scores</th><th>Status</th><th>Result</th></tr></thead><tbody>${matches||'<tr><td colspan="5">No match records yet.</td></tr>'}</tbody></table></div>`;
+ document.querySelectorAll('#teamProfileContent [data-player-profile]').forEach(button=>button.onclick=()=>{currentPlayerId=button.dataset.playerProfile;page('playerProfile')});
 }
 function renderTeams(){
- $('teamList').innerHTML=state.teams.map(t=>`<div class="player-row"><b>${esc(t.name)}</b><small>${playersFor(t.id).length} players</small></div>`).join('')||'<p class="muted">No teams added.</p>';
+ $('teamList').innerHTML=state.teams.map(t=>`<div class="player-row"><button type="button" class="team-stat-link" data-team-profile="${esc(t.id)}">${esc(t.name)}</button><small>${playersFor(t.id).length} players</small></div>`).join('')||'<p class="muted">No teams added.</p>';
+ document.querySelectorAll('#teamList [data-team-profile]').forEach(button=>button.onclick=()=>{currentTeamId=button.dataset.teamProfile;page('teamProfile')});
  $('playerList').innerHTML=state.players.map(p=>{
   const initial=(p.name?.trim()[0]||'P').toUpperCase();
   const avatar=p.photo?`<img src="${p.photo}" alt="${esc(p.name)}">`:`<span class="player-avatar-fallback">${esc(initial)}</span>`;
