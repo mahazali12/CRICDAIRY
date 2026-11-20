@@ -120,7 +120,7 @@ function setup(){
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('home').classList.contains('hidden'))page('home')});
  $('addTeam').onclick=()=>{const name=$('newTeamName').value.trim();if(!name)return toast('Enter a team name');addTeam(name,$('newTeamType').value);$('newTeamName').value='';renderAll();toast('Team added')};
  $('addQuickTeam').onclick=()=>{page('teams');$('newTeamName').focus();toast('Enter the team name, then select Add')};
- $('addPlayer').onclick=async()=>{const name=$('newPlayerName').value.trim(),teamId=$('playerTeam').value;if(!name||!teamId)return toast('Enter player name and team');const f=$('playerPhoto').files[0];const photo=f&&f.type.startsWith('image/')?await resizeImage(f,320):'';state.players.push({id:uid(),name,teamId,role:$('playerRole').value,photo,stats:{runs:0,balls:0,wickets:0,matches:0}});$('newPlayerName').value='';$('playerPhoto').value='';save();renderAll();toast('Player added')};
+ $('addPlayer').onclick=async()=>{const name=$('newPlayerName').value.trim(),teamId=$('playerTeam').value;if(!name||!teamId)return toast('Enter player name and team');if(playersFor(teamId).some(player=>player.name.trim().toLowerCase()===name.toLowerCase()))return toast('This player is already in the selected team or club');const f=$('playerPhoto').files[0];const photo=f&&f.type.startsWith('image/')?await resizeImage(f,320):'';state.players.push({id:uid(),name,teamId,role:$('playerRole').value,photo,stats:{runs:0,balls:0,wickets:0,matches:0}});$('newPlayerName').value='';$('playerPhoto').value='';save();renderAll();toast('Player added')};
  $('addPlayingPlayerA').onclick=()=>addPlayingPlayer('A');
  $('addPlayingPlayerB').onclick=()=>addPlayingPlayer('B');
  $('startMatch').onclick=startMatch;
@@ -146,6 +146,7 @@ function setup(){
  $('addMatchPlayer').onclick=addMatchPlayer;
  $('saveMatchPlayerEdit').onclick=saveMatchPlayerEdit;
  $('matchSeries').onchange=()=>{fillTeamSelects();updateMatchModeInfo();renderPlayingPlayerSelectors()};
+ $('playerTeam').onchange=renderTeams;
  $('undoBtn').onclick=undo;$('swapBtn').onclick=()=>{const m=activeMatch();if(m&&m.non){[m.striker,m.non]=[m.non,m.striker];save()}};
  $('changeBowler').onclick=()=>{const m=activeMatch();if(!m)return;const v=$('pickBowler').value;if(v){m.bowler=v;save()}};
  $('pickStriker').onchange=e=>{const m=activeMatch();if(m){if(e.target.value&&e.target.value===m.non){toast('Choose a different non-striker');renderScorer();return}m.striker=e.target.value;save()}};
@@ -1280,11 +1281,15 @@ function renderTeamProfile(){
 function renderTeams(){
  $('teamList').innerHTML=state.teams.map(t=>`<div class="player-row"><div><button type="button" class="team-stat-link" data-team-profile="${esc(t.id)}">${esc(t.name)}</button><small class="team-type-label">${teamTypeLabel(t)}</small></div><small>${playersFor(t.id).length} players</small></div>`).join('')||'<p class="muted">No teams added.</p>';
  document.querySelectorAll('#teamList [data-team-profile]').forEach(button=>button.onclick=()=>{currentTeamId=button.dataset.teamProfile;page('teamProfile')});
- $('playerList').innerHTML=state.players.map(p=>{
+ const selectedTeamId=$('playerTeam')?.value;
+ const selectedTeam=team(selectedTeamId);
+ const teamPlayers=selectedTeamId?playersFor(selectedTeamId):[];
+ if($('teamPlayerListHeading'))$('teamPlayerListHeading').textContent=selectedTeam?`Players for ${selectedTeam.name}`:'Players';
+ $('playerList').innerHTML=teamPlayers.map(p=>{
   const initial=(p.name?.trim()[0]||'P').toUpperCase();
   const avatar=p.photo?`<img src="${p.photo}" alt="${esc(p.name)}">`:`<span class="player-avatar-fallback">${esc(initial)}</span>`;
   return `<div class="player-row editable-player"><div class="player-main">${avatar}<div><b>${esc(p.name)}</b><small>${esc(team(p.teamId)?.name||'')} • ${esc(playerRoleLabel(p.role))}</small></div></div><div class="player-photo-actions"><button type="button" class="ghost player-photo-change" data-player-id="${p.id}">Change photo</button><button type="button" class="ghost player-photo-remove" data-player-id="${p.id}" ${p.photo?'':'disabled'}>Remove</button><input class="player-photo-input" type="file" accept="image/*" data-player-id="${p.id}" hidden></div></div>`;
- }).join('')||'<p class="muted">No players added.</p>';
+ }).join('')||(selectedTeamId?`<p class="muted">No players added for ${esc(selectedTeam?.name||'this team')} yet.</p>`:'<p class="muted">Select a team or club first.</p>');
  document.querySelectorAll('.player-photo-change').forEach(button=>{
   button.onclick=()=>document.querySelector(`.player-photo-input[data-player-id="${button.dataset.playerId}"]`)?.click();
  });
