@@ -140,3 +140,12 @@ body{background:#06331e}
 .team-roster .player-stat-link{margin:4px 0}
 @media(max-width:520px){.stats-actions{min-width:0;flex-direction:column;align-items:stretch}.stats-actions select{width:100%}.player-profile-heading{align-items:flex-start}.player-profile-photo{width:64px;height:64px;flex-basis:64px}.profile-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .team-type-label{display:block;color:var(--green)!important;font-size:10px;letter-spacing:.3px}
+.stats-actions{display:grid;grid-template-columns:repeat(2,minmax(145px,1fr));min-width:min(540px,65%)}
+.stats-actions input,.stats-actions select{width:100%}
+.player-profile-heading>div{flex:1;min-width:0}
+.player-profile-heading>button{flex:0 0 auto;margin-left:auto}
+.photo-remove-option{flex-direction:row!important;align-items:center}
+.photo-remove-option input{width:auto}
+.team-stat-filter-panel>label{max-width:380px}
+@media(max-width:700px){.player-stats-panel .section-head{align-items:stretch;flex-direction:column}.stats-actions{width:100%;min-width:0}}
+@media(max-width:520px){.stats-actions{grid-template-columns:1fr}.player-profile-heading>button{padding:8px;font-size:12px}}
