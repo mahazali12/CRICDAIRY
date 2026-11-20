@@ -32,6 +32,7 @@ The app also includes a web app manifest, standalone display mode, and offline s
 - Player names open individual career profiles with match-by-match figures; team names open team profiles with rosters, match history and records. Player rankings show run scorers, wicket takers and fielders. Team standings award 2 points for a win and 1 for a tie.
 - Team creation supports a Club team type; choose it when adding a club, and the type appears in team management, team rankings and the team profile. Older teams remain available as Other team.
 - Series and tournaments can include any selected teams or clubs. Use Start match on a series card to open match setup with those teams available.
+- When creating a series, enter the series name, number of matches and at least two participating teams or clubs. Series cards show match progress and team count. Use Edit series to change the name, match count or participating teams, or Delete series to remove the series while keeping linked matches in history without a series.
 - Select each team's playing XI before a match and add missing names from the match setup. During a live match, replace an unused XI player with a squad player or a newly entered name; the XI size and wicket limit stay unchanged.
 - Player statistics can be filtered to one team/club or one player. Team/Club Statistics lets you select a team to see its record and only its players' career stats. Player profiles can be edited, including name, team, role and optional photo.
 
@@ -54,6 +55,8 @@ CRICKET SCORING UPDATE
 - On phone screens, the live score, current run rate, chase required run rate, target, recent balls and current batting/bowling figures sit above a fixed scoring tray. Run rates use the match's legal-ball count; wides and no-balls do not consume balls, and wides do not add batter runs or balls faced.
 - Match bowling figures show that innings' average, economy and strike rate. Undo, Swap, End innings and Finish match sit below the scoring buttons.
 - When a match is completed, the main score area shows the winner and winning margin plus the Player of the Match. Dismissed batters' scorecard entries show the credited bowler; caught, stumped and run-out entries also name the fielder when recorded.
+- Match cards and the live scorer share the complete match summary and scorecards as a PDF file when the browser supports file sharing. If PDF file sharing is unavailable, the app downloads the PDF so it can be opened and shared from device apps.
+- Shared and printed match summaries use a compact match-summary layout: match title and stage, both teams, each innings score and batter list, bowling figures, result, and Player of the Match.
 - After a wicket, the scorer must confirm the incoming batter; after six legal balls, the scorer selects the next bowler (a different one when available). The next delivery stays paused until the required choices are confirmed.
 - Player roles include Wicketkeeper (WK), shown in team rosters and playing-player selection.
 - The live score includes a clearly labeled estimated win prediction based on score, overs and wickets; Test Match prediction is unavailable.
