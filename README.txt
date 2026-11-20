@@ -12,7 +12,7 @@ RUN LOCALLY
 5. For future use, open the same local address. Do not move/delete the folder while using this local server.
 
 IMPORTANT
-- The app opens directly to a full-screen English menu for teams/playing XI, player statistics and rankings, team statistics, new and live matches, resume, history, tournaments, reports/backup and settings/help. Swipe right from the left edge on touch screens, or press Escape on desktop, to return to the menu. It automatically saves to IndexedDB with a previous-state recovery copy and localStorage fallback. Data is local to this browser profile and computer.
+- The app opens directly to a full-screen English menu for team/player management, Playing XI match setup, player statistics and rankings, team statistics, new and live matches, resume, history, tournaments, reports/backup and settings/help. Swipe right from the left edge on touch screens, or press Escape on desktop, to return to the menu. It automatically saves to IndexedDB with a previous-state recovery copy and localStorage fallback. Data is local to this browser profile and computer.
 - No login is required. App data is stored locally in this browser without encryption; protect your device and keep backups private.
 - Export JSON backups from Reports & Backup for a separate copy or to move data to another computer. Browsers do not permit silent writes to arbitrary backup files.
 - CSV export opens in Excel. Print / Save as PDF creates a complete match report with every innings' batting and bowling scorecards, extras, fall of wickets and ball-by-ball history; save the PDF, then share it from your device.
@@ -33,7 +33,7 @@ The app also includes a web app manifest, standalone display mode, and offline s
 - Team creation supports a Club team type; choose it when adding a club, and the type appears in team management, team rankings and the team profile. Older teams remain available as Other team.
 - Series and tournaments can include any selected teams or clubs. Use Start match on a series card to open match setup with those teams available.
 - When creating a series, enter the series name, number of matches and at least two participating teams or clubs. Series cards show match progress and team count. Use Edit series to change the name, match count or participating teams; Delete series appears inside the edit panel and removes the series while keeping linked matches in history without a series.
-- Select each team's playing XI before a match and add missing names from the match setup. During a live match, replace an unused XI player with a squad player or a newly entered name; the XI size and wicket limit stay unchanged.
+- Manage teams and players separately. In Create Match / Select Playing XI, set Team A and Team B player counts independently (1/6/XI/15 presets or custom count), then select exactly that many players. During a live match, replace an unused XI player with a squad player or a newly entered name; the XI size and wicket limit stay unchanged.
 - Player statistics can be filtered to one team/club or one player. Team/Club Statistics lets you select a team to see its record and only its players' career stats. Player profiles can be edited, including name, team, role and optional photo.
 
 Planned/partial modules requiring further development:
@@ -57,6 +57,7 @@ CRICKET SCORING UPDATE
 - When a match is completed, the main score area shows the winner and winning margin plus the Player of the Match. Dismissed batters' scorecard entries show the credited bowler; caught, stumped and run-out entries also name the fielder when recorded.
 - Match cards and the live scorer share the complete match summary and scorecards as a PDF file when the browser supports file sharing. If PDF file sharing is unavailable, the app downloads the PDF so it can be opened and shared from device apps.
 - Shared and printed match summaries use a compact match-summary layout: match title and stage, both teams, each innings score and batter list, bowling figures, result, and Player of the Match.
+- PDF batting rows show player name, runs, balls, fours, sixes, strike rate and dismissal in separate columns. Bowling rows show player name, overs, maidens, runs, wickets, average, economy and strike rate in separate columns.
 - After a wicket, the scorer must confirm the incoming batter; after six legal balls, the scorer selects the next bowler (a different one when available). The next delivery stays paused until the required choices are confirmed.
 - Player roles include Wicketkeeper (WK), shown in team rosters and playing-player selection.
 - The live score includes a clearly labeled estimated win prediction based on score, overs and wickets; Test Match prediction is unavailable.

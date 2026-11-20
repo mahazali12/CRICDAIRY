@@ -130,6 +130,7 @@ function setup(){
  $('matchFormat').onchange=()=>{const format=$('matchFormat').value;const defaults={T5:5,T10:10,T15:15,T20:20,T25:25,T30:30,'ODI 50 Overs':50,Custom:20};if(format!=='Test Match')$('matchOvers').value=defaults[format]||20;updateMatchModeInfo()};
  $('countA').onchange=()=>updatePlayingCount('A');
  $('countB').onchange=()=>updatePlayingCount('B');
+ document.querySelectorAll('[data-lineup-preset]').forEach(button=>button.onclick=()=>setPlayingCountPreset(button.dataset.lineupPreset,Number(button.dataset.count)));
  $('confirmPlayers').onclick=savePlayingPlayers;
  document.querySelectorAll('[data-run]').forEach(b=>b.onclick=()=>scoreSelectedRun(+b.dataset.run));
  document.querySelectorAll('[data-extra]').forEach(b=>b.onclick=()=>extra(b.dataset.extra));
@@ -227,6 +228,7 @@ function updateMatchModeInfo(){
  const fixed=mode==='single'?1:mode==='double'?2:mode==='triple'?3:null;
  if(fixed){$('countA').value=fixed;$('countB').value=fixed;$('countA').readOnly=true;$('countB').readOnly=true}
  else{$('countA').readOnly=false;$('countB').readOnly=false}
+ document.querySelectorAll('[data-lineup-preset]').forEach(button=>{button.disabled=Boolean(fixed)});
  const countA=playersFor($('teamA').value).length,countB=playersFor($('teamB').value).length;
  $('matchModeHint').textContent=`${modeLabel(mode)}: select the players who will play. Squads have ${countA} and ${countB} players; each side can select up to 15.`;
 }
@@ -236,6 +238,18 @@ function selectedPlayingIds(teamKey){
 function updatePlayingCounts(){
  $('selectedCountA').textContent=`${selectedPlayingIds('A').length} selected`;
  $('selectedCountB').textContent=`${selectedPlayingIds('B').length} selected`;
+}
+function setPlayingCountPreset(teamKey,count){
+ const mode=$('matchMode').value;
+ const fixed=mode==='single'?1:mode==='double'?2:mode==='triple'?3:null;
+ if(fixed){toast(`${modeLabel(mode)} requires exactly ${fixed} player${fixed===1?'':'s'} per side`);return}
+ const teamId=$(`team${teamKey}`).value;
+ const squadSize=playersFor(teamId).length;
+ const max=Math.min(15,squadSize);
+ if(!max)return toast('Add players to this team first');
+ if(count>max){toast(`${team(teamId)?.name||'This team'} has ${squadSize} available player${squadSize===1?'':'s'}; choose up to ${max}`);count=max}
+ const input=$(`count${teamKey}`);input.value=count;
+ updatePlayingCount(teamKey);
 }
 function setupTeams(){
  return {a:$('teamA').value,b:$('teamB').value,mode:$('matchMode').value};
@@ -917,14 +931,17 @@ function printableMatchReport(m){
  const inningsSummary=(m.innings||[]).map((inn,index)=>{
   const battingRows=Object.entries(inn.batters||{}).map(([id,stats])=>{
    const runs=Number(stats.runs)||0,balls=Number(stats.balls)||0;
-   return `<div class="summary-batting-row"><span>${esc(playerName(id))}</span><b>${runs}${stats.out?'':'*'}</b></div>`;
+   const sr=balls?(runs/balls*100).toFixed(1):'0.0';
+   const notOut=stats.out?'':'*';
+   return `<div class="summary-batting-row"><span>${esc(playerName(id))}</span><b>${runs}${notOut}</b><b>${balls}</b><b>${Number(stats.fours)||0}</b><b>${Number(stats.sixes)||0}</b><b>${sr}</b><small>${esc(dismissalDescription(inn,id,stats))}</small></div>`;
   }).join('');
+  const battingTable=battingRows?`<div class="summary-batting"><div class="summary-batting-row summary-batting-head"><span>Name</span><b>R</b><b>B</b><b>4s</b><b>6s</b><b>SR</b><b>Dismissal</b></div>${battingRows}</div>`:'';
   const bowlingRows=Object.entries(inn.bowlers||{}).map(([id,stats])=>{
    const figures=bowlingFigures(stats);
-   return `<div class="summary-bowling-row"><span>${esc(playerName(id))}</span><b>${figures.overs}</b><b>${Number(stats.wickets)||0}</b><b>${Number(stats.runs)||0}</b></div>`;
+   return `<div class="summary-bowling-row"><span>${esc(playerName(id))}</span><b>${figures.overs}</b><b>${Number(stats.maidens)||0}</b><b>${Number(stats.runs)||0}</b><b>${Number(stats.wickets)||0}</b><b>${figures.average}</b><b>${figures.economy}</b><b>${figures.strike}</b></div>`;
   }).join('');
-  const bowlingTable=bowlingRows?`<div class="summary-bowling"><div class="summary-bowling-row summary-bowling-head"><span>Name</span><b>Overs</b><b>Wickets</b><b>Runs Given</b></div>${bowlingRows}</div>`:'';
-  return `<section class="compact-summary-innings"><h2>${esc(matchTeamName(inn.batting))} ${Number(inn.runs)||0}-${Number(inn.wickets)||0} in ${Math.floor((Number(inn.legal)||0)/6)}.${(Number(inn.legal)||0)%6} Overs</h2><div class="summary-batting">${battingRows||'<p>No batting figures recorded</p>'}</div>${bowlingTable}</section>`;
+  const bowlingTable=bowlingRows?`<div class="summary-bowling"><div class="summary-bowling-row summary-bowling-head"><span>Name</span><b>Overs</b><b>M</b><b>Runs</b><b>Wickets</b><b>Avg</b><b>Econ</b><b>SR</b></div>${bowlingRows}</div>`:'';
+  return `<section class="compact-summary-innings"><h2>${esc(matchTeamName(inn.batting))} ${Number(inn.runs)||0}-${Number(inn.wickets)||0} in ${Math.floor((Number(inn.legal)||0)/6)}.${(Number(inn.legal)||0)%6} Overs</h2>${battingTable||'<p>No batting figures recorded</p>'}${bowlingTable||'<p>No bowling figures recorded</p>'}</section>`;
  }).join('');
  const stage=seriesName(m.seriesId)?esc(seriesName(m.seriesId)):esc(m.format||'Match');
  return `<div class="report-document"><div class="report-brand"><b>CRICDAIRY</b><span>${esc(state.settings.profileName||'')}</span></div><h1>${esc(m.title)}</h1><h2 class="report-stage">${stage}</h2><h2 class="report-teams">${esc(teams.join(' vs '))}</h2><p>${metadata}</p>${toss}${inningsSummary}<p class="report-result"><b>${esc(m.status==='completed'?m.result||'Result pending':'Match in progress')}</b></p>${award}<p class="report-footer">Generated by CRICDAIRY</p></div>`;
@@ -958,16 +975,23 @@ function createMatchPdfBlob(m){
  const lines=[title,stage,teams.join(' vs '),''];
  (m.innings||[]).forEach((inn,index)=>{
   lines.push(`${matchTeamName(inn.batting)} ${Number(inn.runs)||0}-${Number(inn.wickets)||0} in ${Math.floor((Number(inn.legal)||0)/6)}.${(Number(inn.legal)||0)%6} Overs`);
+  lines.push('');
+  lines.push('Batting');
+  lines.push('Name                     R      B     4s    6s     SR  Dismissal');
   Object.entries(inn.batters||{}).forEach(([id,stats])=>{
    const runs=Number(stats.runs)||0;
-   lines.push(`${playerName(id).padEnd(24,' ')} ${(String(runs)+(stats.out?'':'*')).padStart(4,' ')}`);
+   const balls=Number(stats.balls)||0;
+   const sr=balls?(runs/balls*100).toFixed(1):'0.0';
+   const dismissal=dismissalDescription(inn,id,stats);
+   lines.push(`${playerName(id).padEnd(24,' ')}${(String(runs)+(stats.out?'':'*')).padStart(5,' ')}${String(balls).padStart(5,' ')}${String(Number(stats.fours)||0).padStart(6,' ')}${String(Number(stats.sixes)||0).padStart(6,' ')}${sr.padStart(7,' ')}  ${dismissal}`);
   });
   lines.push('');
+  lines.push('Bowling');
   if(Object.keys(inn.bowlers||{}).length){
-   lines.push('Name                    Overs  Wickets  Runs Given');
+   lines.push('Name                     Overs    M  Runs  Wkts   Avg   Econ     SR');
    Object.entries(inn.bowlers||{}).forEach(([id,stats])=>{
     const figures=bowlingFigures(stats);
-    lines.push(`${playerName(id).padEnd(24,' ')}${String(figures.overs).padStart(5,' ')}${String(Number(stats.wickets)||0).padStart(8,' ')}${String(Number(stats.runs)||0).padStart(12,' ')}`);
+    lines.push(`${playerName(id).padEnd(24,' ')}${figures.overs.padStart(6,' ')}${String(Number(stats.maidens)||0).padStart(5,' ')}${String(Number(stats.runs)||0).padStart(6,' ')}${String(Number(stats.wickets)||0).padStart(6,' ')}${figures.average.padStart(7,' ')}${figures.economy.padStart(7,' ')}${figures.strike.padStart(8,' ')}`);
    });
   }
   lines.push('');
