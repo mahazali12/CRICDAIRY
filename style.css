@@ -149,3 +149,9 @@ body{background:#06331e}
 .team-stat-filter-panel>label{max-width:380px}
 @media(max-width:700px){.player-stats-panel .section-head{align-items:stretch;flex-direction:column}.stats-actions{width:100%;min-width:0}}
 @media(max-width:520px){.stats-actions{grid-template-columns:1fr}.player-profile-heading>button{padding:8px;font-size:12px}}
+.delivery-strike-change{display:flex;align-items:center;gap:8px;margin:10px 0;color:var(--muted);font-size:12px}
+.delivery-strike-change input{width:auto}
+.scorecard-actions{display:flex;align-items:center;gap:10px}
+.scorecard-actions label{display:flex;align-items:center;gap:8px;margin:0;color:var(--muted);font-size:12px}
+.scorecard-actions select{min-width:190px}
+@media(max-width:520px){.scorecard-actions{align-items:stretch;flex-direction:column}.scorecard-actions select{min-width:0}}
