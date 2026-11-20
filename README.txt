@@ -47,9 +47,9 @@ Planned/partial modules requiring further development:
 
 CRICKET SCORING UPDATE
 - Wide and no-ball add a one-run penalty plus the selected completed/batter runs and do not count as legal balls.
-- For a wide or no-ball, tap the extra and then tap 0, 1, 2, 3, 4 or 6 in the main Runs row to record it immediately; no extra run selector or record button is needed.
-- Byes and leg-byes add the selected extras and count as legal balls. A chase ends automatically when the target is reached.
-- Extra deliveries include an optional manual strike-change control. During a match, choose an innings in the scorecard selector to review that innings' batters, dismissals and bowling figures.
+- For any extra, tap the extra and then tap 0, 1, 2, 3, 4 or 6 in the main Runs row to record it immediately; no delivery prompt, Cancel button or extra run selector is needed.
+- Wides and no-balls add a one-run penalty and are not legal balls. Byes and leg-byes add only the selected extra runs and count as legal balls. A chase ends automatically when the target is reached.
+- Use the Wicket button to record a dismissal. During a match, choose an innings in the scorecard selector to review that innings' batters, dismissals and bowling figures.
 - The live scorer shows over-by-over results without the commentary panel, and the in-match scorecard does not display the profile picture.
 - On phone screens, the live score, current run rate, chase required run rate, target, recent balls and current batting/bowling figures sit above a fixed scoring tray. Run rates use the match's legal-ball count; wides and no-balls do not consume balls, and wides do not add batter runs or balls faced.
 - Match bowling figures show that innings' average, economy and strike rate. Undo, Swap, End innings and Finish match sit below the scoring buttons.
