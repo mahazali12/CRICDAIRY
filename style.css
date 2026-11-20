@@ -178,6 +178,20 @@
 
 .profile-fallback{display:grid;place-items:center;width:100%;height:100%;font-size:22px;font-weight:800;color:#dfffea}
 .player-stats-panel{margin-top:18px}.stats-actions{display:flex;align-items:center;gap:8px;min-width:min(440px,55%)}.stats-actions input{flex:1}.stats-actions select{width:150px}.player-stats-panel td small{color:var(--muted)}
+.player-match-performance{margin-top:8px;padding-top:5px;border-top:1px solid var(--line)}.player-match-performance p{margin:5px 0;color:var(--muted);font-size:12px;line-height:1.5}.player-of-match label{max-width:420px}
+.report-document{font-family:Arial,sans-serif;color:#111;background:#fff}.report-document h1{font-size:24px;margin:12px 0 4px}.report-document h2{font-size:17px;margin:14px 0 5px}.report-document h3{font-size:13px;margin:14px 0 6px}.report-document p{font-size:11px;line-height:1.5}.report-teams{margin-top:0!important}.report-innings{margin-top:22px}.report-innings-total{font-weight:700;font-size:15px!important;margin:4px 0 10px}.report-extras{font-size:10px!important}.report-ball-history p{margin:3px 0}.report-award{margin-top:22px;padding-top:10px;border-top:1px solid #999}.report-footer{margin-top:24px;border-top:1px solid #bbb;padding-top:7px}
+@media print{
+ body *{visibility:hidden!important}
+ #fullMatchReport,#fullMatchReport *{visibility:visible!important}
+ #fullMatchReport{display:block!important;position:absolute;left:0;top:0;width:100%;margin:0;padding:0;background:#fff;color:#111}
+ #fullMatchReport .report-document{width:100%;padding:0;color:#111}
+ #fullMatchReport .report-innings+ .report-innings{break-before:page;page-break-before:always}
+ #fullMatchReport .table-wrap{overflow:visible}
+ #fullMatchReport table{width:100%;font-size:8pt;page-break-inside:auto}
+ #fullMatchReport th,#fullMatchReport td{padding:5px;color:#111;border-color:#aaa}
+ #fullMatchReport th{color:#111}
+ #fullMatchReport .report-innings-total{font-size:13pt!important}
+}
 
 /* User-selected CRICDAIRY display picture */
 .display-pic{object-fit:cover;display:block;border:1px solid #35d879}.header-display-pic{width:48px;height:48px;border-radius:13px}.login-display-pic{width:118px;height:150px;border-radius:16px;margin:0 auto 14px}.display-edit-row{display:flex;align-items:center;gap:18px;border-top:1px solid var(--line);padding-top:16px;margin-top:16px}.settings-display-preview{width:100px;height:150px;border-radius:12px}.display-edit-row .profile-edit-fields{flex:1}@media(max-width:520px){.header-display-pic{width:38px;height:38px}.display-edit-row{align-items:flex-start;flex-direction:column}}

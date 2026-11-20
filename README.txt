@@ -15,7 +15,7 @@ IMPORTANT
 - The app opens directly to a full-screen English menu for teams/playing XI, player statistics and rankings, team statistics, new and live matches, resume, history, tournaments, reports/backup and settings/help. Swipe right from the left edge on touch screens, or press Escape on desktop, to return to the menu. It automatically saves to IndexedDB with a previous-state recovery copy and localStorage fallback. Data is local to this browser profile and computer.
 - No login is required. App data is stored locally in this browser without encryption; protect your device and keep backups private.
 - Export JSON backups from Reports & Backup for a separate copy or to move data to another computer. Browsers do not permit silent writes to arbitrary backup files.
-- CSV export opens in Excel. Use Print > Save as PDF for scorecards.
+- CSV export opens in Excel. Print / Save as PDF creates a complete match report with every innings' batting and bowling scorecards, extras, fall of wickets and ball-by-ball history; save the PDF, then share it from your device.
 - No cloud sync, online live-score feed, or automatic WhatsApp sending is included. WhatsApp sharing requires internet and is not part of the offline core.
 - For true PWA install/offline caching, run from localhost or HTTPS; browsers do not allow service workers from file:// URLs.
 - On Android, install from the app's Install app button when the browser offers it, or use the browser menu. On iPhone/iPad, use Safari Share > Add to Home Screen.
@@ -57,7 +57,7 @@ CRICKET SCORING UPDATE
 - Player roles include Wicketkeeper (WK), shown in team rosters and playing-player selection.
 - The live score includes a clearly labeled estimated win prediction based on score, overs and wickets; Test Match prediction is unavailable.
 - In-match player controls are in a collapsed Manage players section. It supports replacing an unused lineup player and editing a player's name or role without losing match statistics.
-- Player of the Match is selected automatically by batting runs plus 20 points per credited bowling wicket (runs break ties).
+- Player of the Match is suggested automatically by batting runs plus 20 points per credited bowling wicket (runs break ties). Choose another match participant if desired; the selected player's batting, bowling and fielding performance appears in the summary and PDF.
 - This starter is not a certified laws engine; review scorecards, especially run-outs and edge-case dismissals, before using it for official tournament records.
 
 PROFILE FEATURE UPDATE

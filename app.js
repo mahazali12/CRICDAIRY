@@ -150,7 +150,7 @@ function setup(){
  $('pickStriker').onchange=e=>{const m=activeMatch();if(m){if(e.target.value&&e.target.value===m.non){toast('Choose a different non-striker');renderScorer();return}m.striker=e.target.value;save()}};
  $('pickNon').onchange=e=>{const m=activeMatch();if(m){if(e.target.value&&e.target.value===m.striker){toast('Choose a different striker');renderScorer();return}m.non=e.target.value;save()}};
  $('pickBowler').onchange=e=>{const m=activeMatch();if(m){m.bowler=e.target.value;save()}};
- $('endInnings').onclick=endInnings;$('startNextInnings').onclick=startNextInnings;$('finishMatch').onclick=finishMatch;$('backLive').onclick=()=>page('live');$('printScore').onclick=()=>window.print();
+ $('endInnings').onclick=endInnings;$('startNextInnings').onclick=startNextInnings;$('finishMatch').onclick=finishMatch;$('backLive').onclick=()=>page('live');$('printScore').textContent='Print / Save PDF';$('printScore').onclick=printMatchReport;
  $('shareMatch').onclick=shareMatch;
  $('installApp').onclick=installApp;
  $('historySearch').oninput=renderHistory;
@@ -161,7 +161,7 @@ function setup(){
  $('teamStatsFilter').onchange=renderTeamStats;
  $('addTournament').onclick=()=>{const n=$('tournamentName').value.trim(),teamIds=Array.from(document.querySelectorAll('.tournament-team-choice:checked')).map(input=>input.value);if(!n)return toast('Enter a series name');if(state.tournaments.some(s=>s.name.toLowerCase()===n.toLowerCase()))return toast('A series with this name already exists');if(new Set(teamIds).size<2)return toast('Select at least two teams or clubs for the series');state.tournaments.push({id:uid(),name:n,teamIds});$('tournamentName').value='';save();toast('Series created. Start its matches from this series card.')};
  $('exportJson').onclick=exportJson;$('restoreJson').onchange=restoreJson;$('exportCsv').onclick=exportCsv;
- $('reportPrint').onclick=()=>{const id=$('reportMatch').value;if(id){currentId=id;page('scorer');setTimeout(()=>window.print(),250)}};
+ $('reportPrint').onclick=()=>{const id=$('reportMatch').value;if(id){currentId=id;page('scorer');setTimeout(printMatchReport,250)}};
  $('demoBtn').onclick=demo;$('clearDemo').onclick=async()=>{if(!confirm('Delete ALL local teams, players and matches? Export a backup first.'))return;state=Store.defaults();currentId=null;undoStack=[];const cleared=await Store.clear();renderAll();$('saveStatus').textContent=cleared?'Local data cleared':'Could not clear all local data';toast(cleared?'Local data cleared':'Could not clear all local data')};
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')Store.save(state)});
  window.addEventListener('pagehide',()=>{Store.save(state)});
@@ -563,7 +563,7 @@ function matchResult(m){
  const first=m.innings[0],second=m.innings[1];
  if(!second)return 'Result pending';
  if(second.runs===first.runs)return 'Match tied';
- return second.runs>first.runs?`${team(second.batting)?.name||'Team'} won by ${Math.max(0,second.wicketLimit-second.wickets)} wicket${second.wicketLimit-second.wickets===1?'':'s'}`:`${team(first.batting)?.name||'Team'} won by ${first.runs-second.runs} run${first.runs-second.runs===1?'':'s'}`;
+ return second.runs>first.runs?`${matchTeamName(second.batting)} won by ${Math.max(0,second.wicketLimit-second.wickets)} wicket${second.wicketLimit-second.wickets===1?'':'s'}`:`${matchTeamName(first.batting)} won by ${first.runs-second.runs} run${first.runs-second.runs===1?'':'s'}`;
 }
 function winningPrediction(m,inn){
  const [teamA,teamB]=m.teams;
@@ -571,7 +571,7 @@ function winningPrediction(m,inn){
   const first=m.innings[0],second=m.innings[1];
   if(!second||first.runs===second.runs)return {a:50,b:50,message:second?'Match tied':'Result pending'};
   const winner=second.runs>first.runs?second.batting:first.batting;
-  return {a:winner===teamA?100:0,b:winner===teamB?100:0,message:`${team(winner)?.name||'Team'} won`};
+  return {a:winner===teamA?100:0,b:winner===teamB?100:0,message:`${matchTeamName(winner)} won`};
  }
  const totalOvers=Number(m.overs);
  if(!Number.isFinite(totalOvers)||totalOvers<=0)return {a:50,b:50,message:'Unavailable for this format'};
@@ -600,7 +600,7 @@ function winningPrediction(m,inn){
 }
 function renderWinningPrediction(m,inn){
  const prediction=winningPrediction(m,inn),aPercent=Math.round(prediction.a*100),bPercent=100-aPercent;
- const nameA=team(m.teams[0])?.name||'Team A',nameB=team(m.teams[1])?.name||'Team B';
+ const nameA=matchTeamName(m.teams[0]),nameB=matchTeamName(m.teams[1]);
  const favored=aPercent===50?null:aPercent>bPercent?nameA:nameB,favoredPercent=Math.max(aPercent,bPercent);
  $('winPredictionHeadline').textContent=prediction.message||(favored?`${favored} favored (${favoredPercent}%)`:'Too close to call');
  $('winPredictionTeams').textContent=`${nameA} ${aPercent}% • ${nameB} ${bPercent}%`;
@@ -674,13 +674,13 @@ function renderScorer(){
  if(scorecardMatchId!==m.id){scorecardMatchId=m.id;scorecardInningsIndex=Number.isInteger(m.current)?m.current:0}
  scorecardInningsIndex=Math.min(scorecardInningsIndex,Math.max(0,m.innings.length-1));
  const scorecardSelect=$('scorecardInningsSelect');
- scorecardSelect.innerHTML=m.innings.map((innings,index)=>`<option value="${index}">${index+1}${index===0?'st':index===1?'nd':'th'} innings — ${esc(team(innings.batting)?.name||'Team')}</option>`).join('');
+ scorecardSelect.innerHTML=m.innings.map((innings,index)=>`<option value="${index}">${inningsOrdinal(index)} innings — ${esc(matchTeamName(innings.batting))}</option>`).join('');
  scorecardSelect.value=String(scorecardInningsIndex);
- scorecardSelect.onchange=()=>{scorecardInningsIndex=Number(scorecardSelect.value);renderScorecard(m,m.innings[scorecardInningsIndex])};
- const inn=getInnings(m),battingTeam=team(inn.batting),side=m.teams[0]===inn.batting?'Team A':'Team B';
+ scorecardSelect.onchange=()=>{scorecardInningsIndex=Number(scorecardSelect.value);renderScorecard(m,m.innings[scorecardInningsIndex],scorecardInningsIndex)};
+ const inn=getInnings(m),battingTeam=team(inn.batting);
  $('scorerTitle').textContent=m.title;
  $('matchMeta').textContent=`${m.format} • ${modeLabel(m.mode)} • ${m.venue||'Venue not set'} • ${m.date||''}${seriesName(m.seriesId)?' • '+seriesName(m.seriesId):''}`;
- $('inningsLabel').textContent=`${m.current+1}${m.current===0?'st':'nd'} Innings • ${side} (${battingTeam?.name||''}) batting`;
+ $('inningsLabel').textContent=`${inningsOrdinal(m.current)} Innings • ${battingTeam?.name||'Unknown team'} batting`;
  $('scoreRuns').textContent=inn.runs;$('scoreWkts').textContent=inn.wickets;
  $('oversText').textContent=`${Math.floor(inn.legal/6)}.${inn.legal%6} overs`;
  $('runRate').textContent=inn.legal?(inn.runs/(inn.legal/6)).toFixed(2):'0.00';
@@ -716,28 +716,110 @@ function renderScorer(){
  if(atBreak){const first=m.innings[0],defending=team(first.bowling);$('inningsBreakSummary').textContent=`${team(first.batting)?.name||'Team'} finished on ${first.runs}/${first.wickets}. Target for ${defending?.name||'the chasing team'}: ${first.runs+1}.`}
  document.querySelector('.scoring-layout').classList.toggle('hidden',!active);
  $('endInnings').disabled=!active;$('finishMatch').disabled=!active;
- renderScorecard(m,m.innings[scorecardInningsIndex]||inn);renderMatchSummary(m);
+ renderScorecard(m,m.innings[scorecardInningsIndex]||inn,scorecardInningsIndex);renderMatchSummary(m);
+}
+function matchTeamName(id){return team(id)?.name||'Unknown team'}
+function inningsOrdinal(index){return `${index+1}${index===0?'st':index===1?'nd':index===2?'rd':'th'}`}
+function matchParticipantIds(m){
+ const ids=new Set();
+ Object.values(m.lineups||{}).forEach(lineup=>{if(Array.isArray(lineup))lineup.forEach(id=>ids.add(id))});
+ (m.innings||[]).forEach(inn=>{
+  Object.keys(inn.batters||{}).forEach(id=>ids.add(id));
+  Object.keys(inn.bowlers||{}).forEach(id=>ids.add(id));
+  (inn.balls||[]).forEach(ball=>{if(ball.fielderId)ids.add(ball.fielderId)});
+ });
+ return [...ids].filter(id=>state.players.some(player=>player.id===id));
+}
+function playerMatchPerformance(m,playerId){
+ const batting=[],bowling=[],fielding={catches:0,stumpings:0,runOuts:0};
+ (m.innings||[]).forEach((inn,index)=>{
+  const bat=inn.batters?.[playerId];
+  if(bat){
+   const runs=Number(bat.runs)||0,balls=Number(bat.balls)||0;
+   batting.push(`${inningsOrdinal(index)} — ${matchTeamName(inn.batting)}: ${runs} (${balls}), 4s ${Number(bat.fours)||0}, 6s ${Number(bat.sixes)||0}, SR ${balls?(runs/balls*100).toFixed(2):'0.00'}`);
+  }
+  const bowl=inn.bowlers?.[playerId];
+  if(bowl){
+   const figures=bowlingFigures(bowl);
+   bowling.push(`${inningsOrdinal(index)} — ${matchTeamName(inn.bowling)}: ${figures.overs}-${Number(bowl.maidens)||0}-${Number(bowl.runs)||0}-${Number(bowl.wickets)||0}, Avg ${figures.average}, Econ ${figures.economy}, SR ${figures.strike}`);
+  }
+  (inn.balls||[]).filter(ball=>ball.fielderId===playerId).forEach(ball=>{
+   if(ball.wicket==='Caught')fielding.catches++;
+   else if(ball.wicket==='Stumped')fielding.stumpings++;
+   else if(ball.wicket==='Run Out')fielding.runOuts++;
+  });
+ });
+ return {batting,bowling,fielding};
+}
+function playerPerformanceLines(m,playerId){
+ const performance=playerMatchPerformance(m,playerId),lines=[
+  ...performance.batting.map(line=>`Batting: ${line}`),
+  ...performance.bowling.map(line=>`Bowling: ${line}`)
+ ];
+ const {catches,stumpings,runOuts}=performance.fielding;
+ if(catches||stumpings||runOuts)lines.push(`Fielding: ${catches} catches, ${stumpings} stumpings, ${runOuts} run outs`);
+ return lines;
+}
+function inningsOverGroups(inn){
+ const overs=new Map();let legalBalls=0;
+ (inn.balls||[]).forEach(ball=>{
+  const recordedOver=Number(ball.over),over=Number.isInteger(recordedOver)&&recordedOver>=0?recordedOver:Math.floor(legalBalls/6);
+  const deliveries=overs.get(over)||[];
+  deliveries.push(ball.text||'•');overs.set(over,deliveries);
+  const legal=typeof ball.legal==='boolean'?ball.legal:!['wide','noball','penalty'].includes(ball.type);
+  if(legal)legalBalls++;
+ });
+ return overs;
+}
+function inningsText(inn,index){
+ const batters=Object.entries(inn.batters||{}).map(([id,stats])=>{
+  const runs=Number(stats.runs)||0,balls=Number(stats.balls)||0;
+  return `${playerName(id)} ${runs} (${balls}), 4s ${Number(stats.fours)||0}, 6s ${Number(stats.sixes)||0}, SR ${balls?(runs/balls*100).toFixed(2):'0.00'} — ${stats.dismissal||'not out'}`;
+ });
+ const bowlers=Object.entries(inn.bowlers||{}).map(([id,stats])=>{
+  const figures=bowlingFigures(stats);
+  return `${playerName(id)} ${figures.overs}-${Number(stats.maidens)||0}-${Number(stats.runs)||0}-${Number(stats.wickets)||0}, Avg ${figures.average}, Econ ${figures.economy}, SR ${figures.strike}`;
+ });
+ const overs=inningsOverGroups(inn);
+ return [
+  `${inningsOrdinal(index)} Innings — ${matchTeamName(inn.batting)}`,
+  `Score: ${inn.runs}/${inn.wickets} (${Math.floor(inn.legal/6)}.${inn.legal%6} overs)`,
+  'Batting:',...(batters.length?batters:['No batting figures recorded']),
+  'Bowling:',...(bowlers.length?bowlers:['No bowling figures recorded']),
+  `Extras: ${Object.entries(inn.extras||{}).map(([name,value])=>`${name} ${Number(value)||0}`).join(', ')||'none'}`,
+  `Fall of wickets: ${(inn.fow||[]).map(item=>`${item.w}-${item.r} (${item.overs}), ${playerName(item.player)}`).join('; ')||'none'}`,
+  ...(overs.size?['Ball-by-ball:',...Array.from(overs.entries(),([over,balls])=>`Over ${over+1}: ${balls.join(' ')}`)]:[])
+ ].join('\n');
 }
 function summaryText(m){
- const scores=(m.innings||[]).map((inn,index)=>`${index===0?'1st':'2nd'} Innings — ${m.teams[0]===inn.batting?'Team A':'Team B'} (${team(inn.batting)?.name||'Team'}): ${inn.runs}/${inn.wickets} (${Math.floor(inn.legal/6)}.${inn.legal%6} overs)`);
- const top=(m.innings||[]).flatMap(inn=>Object.entries(inn.batters||{}).map(([id,s])=>({name:playerName(id),runs:Number(s.runs)||0}))).sort((a,b)=>b.runs-a.runs)[0];
+ const top=(m.innings||[]).flatMap(inn=>Object.entries(inn.batters||{}).map(([id,stats])=>({name:playerName(id),runs:Number(stats.runs)||0}))).sort((a,b)=>b.runs-a.runs)[0];
+ const teamNames=(m.teams||[]).map(matchTeamName);
  return [
   `CRICDAIRY — ${m.title}`,
-  `${team(m.teams[0])?.name||'Team A'} vs ${team(m.teams[1])?.name||'Team B'}`,
+  `${teamNames.join(' vs ')}`,
   `${m.format} • ${modeLabel(m.mode)}${m.date?' • '+m.date:''}${m.venue?' • '+m.venue:''}`,
-  ...scores,
-  m.status==='completed'?`Result: ${m.result||'Result pending'}`:'Match in progress',
-  m.status==='completed'&&m.playerOfTheMatch?`Player of the Match: ${playerName(m.playerOfTheMatch)}`:'',
+  m.toss?`Toss: ${matchTeamName(m.toss.winner)} won and chose to ${m.toss.decision==='bat'?'bat':'bowl'}`:'',
   seriesName(m.seriesId)?`Series: ${seriesName(m.seriesId)}`:'',
+  ...(m.innings||[]).map(inningsText),
+  m.status==='completed'?`Result: ${m.result||'Result pending'}`:'Match in progress',
+  m.status==='completed'&&m.playerOfTheMatch?`Player of the Match: ${playerName(m.playerOfTheMatch)}\n${playerPerformanceLines(m,m.playerOfTheMatch).join('\n')}`:'',
   top?`Top scorer: ${top.name} (${top.runs})`:''
- ].filter(Boolean).join('\n');
+ ].filter(Boolean).join('\n\n');
 }
 function renderMatchSummary(m){
- const innings=(m.innings||[]).map((inn,index)=>`<div class="summary-score"><b>${index===0?'1st':'2nd'} Innings — ${m.teams[0]===inn.batting?'Team A':'Team B'} (${esc(team(inn.batting)?.name||'Team')})</b><span>${inn.runs}/${inn.wickets}</span><small>${Math.floor(inn.legal/6)}.${inn.legal%6} overs</small></div>`).join('');
+ const innings=(m.innings||[]).map((inn,index)=>`<div class="summary-score"><b>${inningsOrdinal(index)} Innings — ${esc(matchTeamName(inn.batting))}</b><span>${inn.runs}/${inn.wickets}</span><small>${Math.floor(inn.legal/6)}.${inn.legal%6} overs</small></div>`).join('');
  $('matchSummary').innerHTML=`<div class="summary-result"><b>${esc(m.status==='completed'?m.result||'Result pending':'Match in progress')}</b><span>${esc(m.title)}</span>${seriesName(m.seriesId)?`<small>Series: ${esc(seriesName(m.seriesId))}</small>`:''}</div><div class="summary-scores">${innings}</div>`;
- const potm=$('playerOfMatch'),player=m.playerOfTheMatch;
+ const potm=$('playerOfMatch'),player=m.playerOfTheMatch,candidates=matchParticipantIds(m).sort((a,b)=>playerName(a).localeCompare(playerName(b)));
  potm.classList.toggle('hidden',m.status!=='completed');
- potm.innerHTML=m.status==='completed'?`<b>Player of the Match</b><span>${player?esc(playerName(player)):'No standout performance recorded'}</span><small>Automatically selected from batting runs and bowling wickets.</small>`:'';
+ if(m.status!=='completed'){potm.innerHTML='';return}
+ potm.innerHTML=`<b>Player of the Match</b><span>${player?esc(playerName(player)):'No player selected'}</span><label>Choose Player of the Match<select id="playerOfMatchSelect"><option value="">No award selected</option>${candidates.map(id=>`<option value="${esc(id)}">${esc(playerName(id))}</option>`).join('')}</select></label><small>Automatically suggested from match performance; you can change the selection.</small><div class="player-match-performance">${playerPerformanceLines(m,player).map(line=>`<p>${esc(line)}</p>`).join('')||'<p>No batting, bowling, or fielding figures recorded.</p>'}</div>`;
+ const select=$('playerOfMatchSelect');select.value=player||'';
+ select.onchange=async()=>{
+  const selected=select.value;
+  if(selected&&!candidates.includes(selected))return toast('Choose a player who participated in this match');
+  m.playerOfTheMatch=selected||null;
+  await save();renderScorer();
+ };
 }
 async function shareMatch(){
  const m=activeMatch();if(!m)return;
@@ -788,7 +870,42 @@ async function changePlayerPhoto(id,file){
  if(!player)return;
  player.photo=photo;save();toast('Player photo updated');
 }
-function renderScorecard(m,inn){const rows=Object.entries(inn.batters).map(([id,s])=>`<tr><td>${esc(playerName(id))}</td><td>${s.runs}</td><td>${s.balls}</td><td>${s.fours}</td><td>${s.sixes}</td><td>${s.balls?(s.runs/s.balls*100).toFixed(1):'0.0'}</td><td>${esc(s.dismissal||'not out')}</td></tr>`).join('');const br=Object.entries(inn.bowlers).map(([id,s])=>{const figures=bowlingFigures(s);return `<tr><td>${esc(playerName(id))}</td><td>${figures.overs}</td><td>${s.maidens||0}</td><td>${s.runs||0}</td><td>${s.wickets||0}</td><td>${figures.average}</td><td>${figures.economy}</td><td>${figures.strike}</td></tr>`}).join('');$('scorecard').innerHTML=`<div class="report-brand"><img src="${state.settings.profilePhoto||''}" onerror="this.style.display='none'" alt=""><div><b>CRICDAIRY</b><div>${esc(state.settings.profileName||'RAZI SHAH')}</div></div></div><h3>${esc(team(inn.batting)?.name||'Batting')} — ${inn.runs}/${inn.wickets} (${Math.floor(inn.legal/6)}.${inn.legal%6} overs)</h3><div class="table-wrap"><table><thead><tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th><th>Dismissal</th></tr></thead><tbody>${rows||'<tr><td colspan="7">No batting data yet</td></tr>'}</tbody></table></div><h3>Bowling</h3><div class="table-wrap"><table><thead><tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Avg</th><th>Econ</th><th>SR</th></tr></thead><tbody>${br||'<tr><td colspan="8">No bowling data yet</td></tr>'}</tbody></table></div><p class="hint">Extras: ${Object.entries(inn.extras).map(([k,v])=>`${k} ${v}`).join(' • ')} • Fall of wickets: ${inn.fow.map(x=>`${x.w}-${x.r} (${x.overs})`).join(', ')||'—'}</p>`}
+function inningsBallHistoryMarkup(inn){
+ const overs=inningsOverGroups(inn);
+ if(!overs.size)return '';
+ return `<h3>Ball-by-ball</h3><div class="report-ball-history">${Array.from(overs.entries(),([over,balls])=>`<p><b>Over ${over+1}:</b> ${balls.map(esc).join(' · ')}</p>`).join('')}</div>`;
+}
+function inningsScorecardMarkup(inn,index){
+ const rows=Object.entries(inn.batters||{}).map(([id,stats])=>{
+  const runs=Number(stats.runs)||0,balls=Number(stats.balls)||0;
+  return `<tr><td>${esc(playerName(id))}</td><td>${runs}</td><td>${balls}</td><td>${Number(stats.fours)||0}</td><td>${Number(stats.sixes)||0}</td><td>${balls?(runs/balls*100).toFixed(1):'0.0'}</td><td>${esc(stats.dismissal||'not out')}</td></tr>`;
+ }).join('');
+ const bowlers=Object.entries(inn.bowlers||{}).map(([id,stats])=>{
+  const figures=bowlingFigures(stats);
+  return `<tr><td>${esc(playerName(id))}</td><td>${figures.overs}</td><td>${Number(stats.maidens)||0}</td><td>${Number(stats.runs)||0}</td><td>${Number(stats.wickets)||0}</td><td>${figures.average}</td><td>${figures.economy}</td><td>${figures.strike}</td></tr>`;
+ }).join('');
+ const extras=Object.entries(inn.extras||{}).map(([name,value])=>`${name} ${Number(value)||0}`).join(' • ')||'—';
+ const wickets=(inn.fow||[]).map(item=>`${item.w}-${item.r} (${item.overs}), ${playerName(item.player)}`).join(', ')||'—';
+ return `<section class="report-innings"><h2>${inningsOrdinal(index)} Innings — ${esc(matchTeamName(inn.batting))}</h2><p class="report-innings-total">${Number(inn.runs)||0}/${Number(inn.wickets)||0} (${Math.floor((Number(inn.legal)||0)/6)}.${(Number(inn.legal)||0)%6} overs)</p><div class="table-wrap"><table><thead><tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th><th>Dismissal</th></tr></thead><tbody>${rows||'<tr><td colspan="7">No batting data yet</td></tr>'}</tbody></table></div><h3>Bowling</h3><div class="table-wrap"><table><thead><tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Avg</th><th>Econ</th><th>SR</th></tr></thead><tbody>${bowlers||'<tr><td colspan="8">No bowling data yet</td></tr>'}</tbody></table></div><p class="report-extras"><b>Extras:</b> ${esc(extras)}<br><b>Fall of wickets:</b> ${esc(wickets)}</p>${inningsBallHistoryMarkup(inn)}</section>`;
+}
+function renderScorecard(m,inn,index=scorecardInningsIndex){
+ $('scorecard').innerHTML=`<div class="report-brand"><img src="${state.settings.profilePhoto||''}" onerror="this.style.display='none'" alt=""><div><b>CRICDAIRY</b><div>${esc(state.settings.profileName||'RAZI SHAH')}</div></div></div>${inningsScorecardMarkup(inn,index)}`;
+}
+function printableMatchReport(m){
+ const teams=(m.teams||[]).map(matchTeamName);
+ const metadata=[m.format,modeLabel(m.mode),m.date,m.venue].filter(Boolean).map(esc).join(' • ');
+ const toss=m.toss?`<p><b>Toss:</b> ${esc(matchTeamName(m.toss.winner))} won and chose to ${m.toss.decision==='bat'?'bat':'bowl'}</p>`:'';
+ const series=seriesName(m.seriesId)?`<p><b>Series:</b> ${esc(seriesName(m.seriesId))}</p>`:'';
+ const player=m.playerOfTheMatch;
+ const performance=player?playerPerformanceLines(m,player):[];
+ const award=player?`<section class="report-award"><h2>Player of the Match — ${esc(playerName(player))}</h2>${performance.map(line=>`<p>${esc(line)}</p>`).join('')||'<p>No batting, bowling, or fielding figures recorded.</p>'}</section>`:'';
+ return `<div class="report-document"><div class="report-brand"><b>CRICDAIRY</b><span>${esc(state.settings.profileName||'')}</span></div><h1>${esc(m.title)}</h1><h2 class="report-teams">${esc(teams.join(' vs '))}</h2><p>${metadata}</p>${toss}${series}<p class="report-result"><b>${esc(m.status==='completed'?m.result||'Result pending':'Match in progress')}</b></p>${(m.innings||[]).map(inningsScorecardMarkup).join('')}${award}<p class="report-footer">Generated by CRICDAIRY</p></div>`;
+}
+function printMatchReport(){
+ const m=activeMatch();if(!m)return;
+ $('fullMatchReport').innerHTML=printableMatchReport(m);
+ window.print();
+}
 function renderAll(){profileMarkup();fillTeamSelects();renderLauncher();renderTeams();renderPlayingPlayerSelectors();renderHistory();renderLive();renderTournaments();fillReportSelect();$('backupInfo').textContent=`${state.matches.length} matches • ${state.teams.length} teams • Auto-saved locally in this browser.`}
 function renderLauncher(){
  $('menuResumeMatch').classList.toggle('hidden',!state.matches.some(m=>m.status==='live'));
