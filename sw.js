@@ -1,4 +1,4 @@
-const CACHE='cricdairy-v22';
+const CACHE='cricdairy-v24';
 const ASSETS=['./','./index.html','./style.css','./db.js','./app.js','./manifest.json','./assets/admin-profile.jpg','./assets/app-display.jpg'];
 self.addEventListener('install',event=>{
  event.waitUntil(caches.open(CACHE).then(cache=>Promise.all(ASSETS.map(async asset=>{

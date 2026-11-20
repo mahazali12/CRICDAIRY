@@ -28,6 +28,7 @@ toggle labels, and responsive layout. Extras support selectable runs and optiona
 wait for the scorer to start the next innings. Targets and run rates update during a chase, completed matches
 are saved to history automatically, and history cards can share the summary.
 The app also includes a web app manifest, standalone display mode, and offline service-worker cache for phone installation. The installed app icon uses the same admin profile picture as the app.
+- Player career records include batting, bowling and recorded fielding figures, including appearances, averages, strike/economy rates, best score/figures, 50s/100s, maidens, boundaries, dots, catches, stumpings, run outs and Player of the Match awards. Select a fielder for catches, stumpings and run outs so those fielding figures are credited.
 
 Planned/partial modules requiring further development:
 - Full Test match multi-innings and follow-on enforcement
