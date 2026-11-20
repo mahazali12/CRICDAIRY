@@ -98,10 +98,6 @@ function setup(){
  document.querySelectorAll('#playerRole option,#matchNewPlayerRole option,#matchPlayerEditRole option').forEach(option=>{
   if(option.value==='Wicketkeeper'){option.setAttribute('value','Wicketkeeper');option.textContent='Wicketkeeper (WK)'}
  });
- $('saveProfile').onclick=saveProfile;
- $('saveDisplayPhoto').onclick=saveDisplayPhoto;
- $('resetDisplayPhoto').onclick=()=>{state.settings.displayPhoto='./assets/app-display.jpg';$('displayPhotoInput').value='';save();toast('Original display picture restored')};
- $('removeProfilePhoto').onclick=()=>{state.settings.profilePhoto='./assets/admin-profile.jpg';$('profilePhotoInput').value='';save();toast('Original profile picture restored')};
  $('menuTeams').onclick=()=>page('teams');
  $('menuPlayerStats').onclick=()=>page('playerStats');
  $('menuTeamStats').onclick=()=>page('teamStats');
@@ -111,7 +107,6 @@ function setup(){
  $('menuHistory').onclick=()=>page('history');
  $('menuTournaments').onclick=()=>page('tournaments');
  $('menuReports').onclick=()=>page('reports');
- $('menuSettings').onclick=()=>page('settings');
  $('menuLoadMatch').onclick=()=>page('history');
  document.addEventListener('touchstart',event=>{
   swipeStart=event.touches.length===1&&event.touches[0].clientX<=64?{x:event.touches[0].clientX,y:event.touches[0].clientY}:null;
@@ -175,7 +170,6 @@ function setup(){
  $('addTournament').onclick=createTournament;
  $('exportJson').onclick=exportJson;$('restoreJson').onchange=restoreJson;$('exportCsv').onclick=exportCsv;
  $('reportPrint').onclick=()=>{const id=$('reportMatch').value;if(id){currentId=id;page('scorer');setTimeout(printMatchReport,250)}};
- $('demoBtn').onclick=demo;$('clearDemo').onclick=async()=>{if(!confirm('Delete ALL local teams, players and matches? Export a backup first.'))return;state=Store.defaults();currentId=null;undoStack=[];const cleared=await Store.clear();renderAll();$('saveStatus').textContent=cleared?'Local data cleared':'Could not clear all local data';toast(cleared?'Local data cleared':'Could not clear all local data')};
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')Store.save(state)});
  window.addEventListener('pagehide',()=>{Store.save(state)});
  if('serviceWorker'in navigator && location.protocol!=='file:')navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
@@ -200,14 +194,12 @@ function saveDisplayPhoto(){
 function profileMarkup(){
  const photo=state.settings.profilePhoto||'./assets/admin-profile.jpg';
  const display=state.settings.displayPhoto||'./assets/app-display.jpg';
- ['headerDisplayPic','settingsDisplayPreview'].forEach(id=>{const el=$(id);if(el)el.src=display;});
+ ['headerDisplayPic'].forEach(id=>{const el=$(id);if(el)el.src=display;});
  const name=state.settings.profileName||'RAZI SHAH';
  const initial=(name.trim()[0]||'A').toUpperCase();
  const placeholder='data:image/svg+xml;charset=UTF-8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160"><rect width="100%" height="100%" fill="#174327"/><text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" font-family="Arial" font-size="76" font-weight="700" fill="#eaffef">${initial}</text></svg>`);
- ['headerProfilePhoto','settingsProfilePreview'].forEach(id=>{const el=$(id);if(!el)return;el.src=photo||placeholder;el.style.display='inline-flex'});
+ ['headerProfilePhoto'].forEach(id=>{const el=$(id);if(!el)return;el.src=photo||placeholder;el.style.display='inline-flex'});
  ['headerProfileName'].forEach(id=>{if($(id))$(id).textContent=name});
- if($('profileNameInput'))$('profileNameInput').value=name;
- if($('settingsDisplayPreview'))$('settingsDisplayPreview').src=display;
 }
 function fillTeamSelects(){
  const selected={};

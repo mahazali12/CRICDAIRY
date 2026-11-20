@@ -12,7 +12,7 @@ RUN LOCALLY
 5. For future use, open the same local address. Do not move/delete the folder while using this local server.
 
 IMPORTANT
-- The app opens directly to a full-screen English menu for team/player management, Playing XI match setup, player statistics and rankings, team statistics, new and live matches, resume, history, tournaments, reports/backup and settings/help. Swipe right from the left edge on touch screens, or press Escape on desktop, to return to the menu. It automatically saves to IndexedDB with a previous-state recovery copy and localStorage fallback. Data is local to this browser profile and computer.
+- The app opens directly to a full-screen English menu for team/player management, Playing XI match setup, player statistics and rankings, team statistics, new and live matches, resume, history, tournaments and reports/backup. Swipe right from the left edge on touch screens, or press Escape on desktop, to return to the menu. It automatically saves to IndexedDB with a previous-state recovery copy and localStorage fallback. Data is local to this browser profile and computer.
 - No login is required. App data is stored locally in this browser without encryption; protect your device and keep backups private.
 - Export JSON backups from Reports & Backup for a separate copy or to move data to another computer. Browsers do not permit silent writes to arbitrary backup files.
 - CSV export opens in Excel. Print / Save as PDF creates a complete match report with every innings' batting and bowling scorecards, extras, fall of wickets and ball-by-ball history; save the PDF, then share it from your device.
@@ -23,7 +23,7 @@ IMPORTANT
 CURRENT RELEASE SCOPE
 This is a working starter application with local teams/players, standard and single/double/triple wicket
 matches, selectable playing lineups of 1–15 players per side and custom overs, ball-by-ball scoring, undo, match summaries and sharing,
-match history, team-selected series/tournaments and results, JSON backup/restore, CSV export, print/PDF, demo data,
+match history, team-selected series/tournaments and results, JSON backup/restore, CSV export and print/PDF,
 English interface, and responsive layout. Extras support selectable runs and optional dismissals; limited-overs innings
 end automatically after the last legal ball or wicket limit, then wait for the scorer to start the next innings. Wides do not offer a dismissal selector. The Wicket button opens the dismissal details before recording. Targets and run rates update during a chase, completed matches
 are saved to history automatically, and history cards can share the summary.
@@ -72,7 +72,6 @@ CRICKET SCORING UPDATE
 - This starter is not a certified laws engine; review scorecards, especially run-outs and edge-case dismissals, before using it for official tournament records.
 
 PROFILE FEATURE UPDATE
-- Admin display name and profile photo can be set from Settings & Help > Admin Profile & Display Picture.
 - Default admin display name is RAZI SHAH; a previously saved default "Admin" name is updated automatically.
 - The profile photo is resized and stored in local app data, then shown in the header. The match scorecard does not display it.
 - The CRICDAIRY cricket-ball brand mark remains fixed and cannot be changed, as requested.
@@ -82,4 +81,3 @@ PROFILE FEATURE UPDATE
 PROFILE & DISPLAY PICTURES
 - Your supplied admin profile picture is saved in assets/admin-profile.jpg and is used by default.
 - Your supplied CRICDAIRY display picture is saved in assets/app-display.jpg and appears in the app header.
-- Settings lets you upload a replacement profile picture or display picture. Both are stored locally in this browser; the two supplied defaults are included in the offline app cache.
