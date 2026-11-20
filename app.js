@@ -480,7 +480,7 @@ async function addBall(runs,type='run',extraRuns=0,legal=true,wicketKind=null,ou
 function ballText(r,t,total){if(t==='run')return r===0?'•':String(r);if(t==='wide')return `Wd${total>1?total:''}`;if(t==='noball')return `Nb${total>1?total:''}`;if(t==='bye')return `B${total}`;if(t==='legbye')return `Lb${total}`;return `P${total}`}
 function deliver(r){addBall(r,'run',0,true)}
 function scoreSelectedRun(runs){
- if(pendingDelivery==='wide'||pendingDelivery==='noball'){recordPendingDelivery(runs);return}
+ if(pendingDelivery){recordPendingDelivery(runs);return}
  deliver(runs);
 }
 function extra(type){
@@ -490,19 +490,8 @@ function extra(type){
  if(!['wide','noball','bye','legbye'].includes(type))return toast('Unknown extra type');
  closeDeliveryPanel();
  pendingDelivery=type;
- $('deliveryRuns').value='0';$('deliveryDismissal').value='';$('deliveryFielder').value='';
  document.querySelectorAll('[data-extra]').forEach(button=>button.classList.toggle('selected-extra',button.dataset.extra===type));
- if(type==='wide'||type==='noball'){
-  $('deliveryChangeStrike').checked=false;
-  return;
- }
  $('deliveryChangeStrike').checked=false;
- $('deliveryRunsWrap').classList.remove('hidden');$('recordDelivery').classList.remove('hidden');$('deliveryDismissalWrap').classList.remove('hidden');
- $('deliveryTitle').textContent=({wide:'Wide delivery',noball:'No-ball delivery',bye:'Bye delivery',legbye:'Leg-bye delivery'})[type];
- $('deliveryHint').textContent='Byes and leg-byes add the selected extras and count as a legal ball.';
- const options={wide:[],noball:['Run Out','Hit Ball Twice','Obstructing the Field','Retired Out'],bye:['Run Out','Stumped','Obstructing the Field','Retired Out'],legbye:['Run Out','Obstructing the Field','Retired Out']}[type];
- $('deliveryDismissal').innerHTML='<option value="">No wicket</option>'+options.map(kind=>`<option value="${esc(kind)}">${esc(kind)}</option>`).join('');
- updateDeliveryOutControls();$('deliveryPanel').classList.remove('hidden');
 }
 function updateDeliveryOutControls(){
  const kind=$('deliveryDismissal').value,m=activeMatch();
@@ -518,13 +507,10 @@ function updateDeliveryOutControls(){
 function closeDeliveryPanel(){pendingDelivery=null;$('deliveryPanel').classList.add('hidden');document.querySelectorAll('[data-extra]').forEach(button=>button.classList.remove('selected-extra'))}
 function recordPendingDelivery(selectedRuns){
  if(!pendingDelivery)return;
- const m=activeMatch(),type=pendingDelivery,runs=selectedRuns===undefined?Number($('deliveryRuns').value):selectedRuns,kind=type==='wide'?null:$('deliveryDismissal').value||null,out=$('deliveryOut').value||'striker',changeStrike=$('deliveryChangeStrike').checked;
+ const m=activeMatch(),type=pendingDelivery,runs=Number(selectedRuns),extras={wide:1,noball:1,bye:0,legbye:0};
  if(!m||m.status!=='live'||m.inningsBreak)return closeDeliveryPanel();
  if(!m.striker||!m.bowler)return toast('Select striker and bowler first');
- const fielderId=$('deliveryFielder').value;
- if(needsFielder(kind)&&!fielderId)return toast('Select the fielder to record this fielding stat');
- const extras={wide:1,noball:1,bye:0,legbye:0};
- closeDeliveryPanel();addBall(runs,type,extras[type],!['wide','noball'].includes(type),kind,out,fielderId,changeStrike);
+ closeDeliveryPanel();addBall(runs,type,extras[type],!['wide','noball'].includes(type));
 }
 function wicket(kind,outChoice='striker',fielderId=null){addBall(0,'run',0,true,kind,outChoice,fielderId)}
 function applyPlayerOfTheMatch(m){
