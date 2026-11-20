@@ -47,9 +47,10 @@ function page(p,recordHistory=true){
 }
 function activeMatch(){return state.matches.find(m=>m.id===currentId)}
 function team(id){return state.teams.find(t=>t.id===id)}
+function teamTypeLabel(item){return item?.type==='club'?'Club team':'Other team'}
 function playersFor(teamId){return state.players.filter(p=>p.teamId===teamId)}
 function modeLabel(mode){return ({standard:'Standard',single:'Single wicket',double:'Double wicket',triple:'Triple wicket',custom:'Custom players'})[mode]||'Standard'}
-function addTeam(name){if(!name.trim())return;state.teams.push({id:uid(),name:name.trim()});save()}
+function addTeam(name,type='other'){if(!name.trim())return;state.teams.push({id:uid(),name:name.trim(),type});save()}
 function init(){
  state=window.__initialState||null;
  history.replaceState({cricdairyApp:true,screen:'home'},'',location.href);
@@ -113,7 +114,7 @@ function setup(){
   if($('home').classList.contains('hidden')&&dx>=90&&dx>Math.abs(dy)*1.4)page('home');
  },{passive:true});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('home').classList.contains('hidden'))page('home')});
- $('addTeam').onclick=()=>{const name=$('newTeamName').value.trim();if(!name)return toast('Enter a team name');addTeam(name);$('newTeamName').value='';renderAll();toast('Team added')};
+ $('addTeam').onclick=()=>{const name=$('newTeamName').value.trim();if(!name)return toast('Enter a team name');addTeam(name,$('newTeamType').value);$('newTeamName').value='';renderAll();toast('Team added')};
  $('addQuickTeam').onclick=()=>{page('teams');$('newTeamName').focus();toast('Enter the team name, then select Add')};
  $('addPlayer').onclick=async()=>{const name=$('newPlayerName').value.trim(),teamId=$('playerTeam').value;if(!name||!teamId)return toast('Enter player name and team');const f=$('playerPhoto').files[0];const photo=f&&f.type.startsWith('image/')?await resizeImage(f,320):'';state.players.push({id:uid(),name,teamId,role:$('playerRole').value,photo,stats:{runs:0,balls:0,wickets:0,matches:0}});$('newPlayerName').value='';$('playerPhoto').value='';save();renderAll();toast('Player added')};
  $('startMatch').onclick=startMatch;
@@ -665,7 +666,7 @@ function renderTeamStats(){
   const points=r=>r.wins*2+r.ties,percent=r=>r.played?(r.wins+r.ties/2)/r.played:0;
   return points(b[1])-points(a[1])||percent(b[1])-percent(a[1])||b[1].runsFor-a[1].runsFor||(team(a[0])?.name||'').localeCompare(team(b[0])?.name||'');
  });
- $('teamStatsContent').innerHTML=rows.length?`<div class="table-wrap"><table><thead><tr><th>Rank</th><th>Team</th><th>Played</th><th>Won</th><th>Lost</th><th>Tied</th><th>No result</th><th>Points</th><th>Win %</th><th>Runs for / against</th><th>Highest innings</th></tr></thead><tbody>${rows.map(([id,r],index)=>`<tr><td>${index+1}</td><td><button type="button" class="team-stat-link" data-team-profile="${esc(id)}">${esc(team(id)?.name||'Team')}</button></td><td>${r.played}</td><td>${r.wins}</td><td>${r.losses}</td><td>${r.ties}</td><td>${r.noResults}</td><td>${r.wins*2+r.ties}</td><td>${r.played?((r.wins+r.ties/2)*100/r.played).toFixed(1):'0.0'}%</td><td>${r.runsFor} / ${r.runsAgainst}</td><td>${r.highest}</td></tr>`).join('')}</tbody></table></div><p class="hint">Rankings use 2 points per win and 1 per tie; teams without a completed match have no result points yet.</p>`:'<p class="muted">Add teams to see team statistics and rankings.</p>';
+ $('teamStatsContent').innerHTML=rows.length?`<div class="table-wrap"><table><thead><tr><th>Rank</th><th>Team</th><th>Type</th><th>Played</th><th>Won</th><th>Lost</th><th>Tied</th><th>No result</th><th>Points</th><th>Win %</th><th>Runs for / against</th><th>Highest innings</th></tr></thead><tbody>${rows.map(([id,r],index)=>`<tr><td>${index+1}</td><td><button type="button" class="team-stat-link" data-team-profile="${esc(id)}">${esc(team(id)?.name||'Team')}</button></td><td>${esc(teamTypeLabel(team(id)))}</td><td>${r.played}</td><td>${r.wins}</td><td>${r.losses}</td><td>${r.ties}</td><td>${r.noResults}</td><td>${r.wins*2+r.ties}</td><td>${r.played?((r.wins+r.ties/2)*100/r.played).toFixed(1):'0.0'}%</td><td>${r.runsFor} / ${r.runsAgainst}</td><td>${r.highest}</td></tr>`).join('')}</tbody></table></div><p class="hint">Rankings use 2 points per win and 1 per tie; teams without a completed match have no result points yet.</p>`:'<p class="muted">Add teams to see team statistics and rankings.</p>';
  document.querySelectorAll('[data-team-profile]').forEach(button=>button.onclick=()=>{currentTeamId=button.dataset.teamProfile;page('teamProfile')});
 }
 function renderTeamProfile(){
@@ -678,11 +679,11 @@ function renderTeamProfile(){
  }).join('');
  const roster=playersFor(selectedTeam.id).map(player=>`<button type="button" class="player-stat-link" data-player-profile="${esc(player.id)}">${esc(player.name)}</button> <small>${esc(player.role||'')}</small>`).join(' • ')||'<span class="muted">No players on this team yet.</span>';
  $('teamProfileTitle').textContent=selectedTeam.name;
- $('teamProfileContent').innerHTML=`<div class="profile-stat-grid"><div class="stat"><small>Played / won / lost</small><strong>${record.played} / ${record.wins} / ${record.losses}</strong></div><div class="stat"><small>Tied / no result</small><strong>${record.ties} / ${record.noResults}</strong></div><div class="stat"><small>Points / win percentage</small><strong>${record.wins*2+record.ties} / ${record.played?((record.wins+record.ties/2)*100/record.played).toFixed(1):'0.0'}%</strong></div><div class="stat"><small>Runs for / against</small><strong>${record.runsFor} / ${record.runsAgainst}</strong></div><div class="stat"><small>Batting / bowling run rate</small><strong>${battingRate} / ${bowlingRate}</strong></div><div class="stat"><small>Highest innings</small><strong>${record.highest}</strong></div></div><div class="panel team-roster"><h3>Players</h3><div>${roster}</div></div><div class="panel table-wrap"><h3>Match history</h3><table><thead><tr><th>Match</th><th>Date</th><th>Scores</th><th>Status</th><th>Result</th></tr></thead><tbody>${matches||'<tr><td colspan="5">No match records yet.</td></tr>'}</tbody></table></div>`;
+ $('teamProfileContent').innerHTML=`<p class="eyebrow">${teamTypeLabel(selectedTeam)}</p><div class="profile-stat-grid"><div class="stat"><small>Played / won / lost</small><strong>${record.played} / ${record.wins} / ${record.losses}</strong></div><div class="stat"><small>Tied / no result</small><strong>${record.ties} / ${record.noResults}</strong></div><div class="stat"><small>Points / win percentage</small><strong>${record.wins*2+record.ties} / ${record.played?((record.wins+record.ties/2)*100/record.played).toFixed(1):'0.0'}%</strong></div><div class="stat"><small>Runs for / against</small><strong>${record.runsFor} / ${record.runsAgainst}</strong></div><div class="stat"><small>Batting / bowling run rate</small><strong>${battingRate} / ${bowlingRate}</strong></div><div class="stat"><small>Highest innings</small><strong>${record.highest}</strong></div></div><div class="panel team-roster"><h3>Players</h3><div>${roster}</div></div><div class="panel table-wrap"><h3>Match history</h3><table><thead><tr><th>Match</th><th>Date</th><th>Scores</th><th>Status</th><th>Result</th></tr></thead><tbody>${matches||'<tr><td colspan="5">No match records yet.</td></tr>'}</tbody></table></div>`;
  document.querySelectorAll('#teamProfileContent [data-player-profile]').forEach(button=>button.onclick=()=>{currentPlayerId=button.dataset.playerProfile;page('playerProfile')});
 }
 function renderTeams(){
- $('teamList').innerHTML=state.teams.map(t=>`<div class="player-row"><button type="button" class="team-stat-link" data-team-profile="${esc(t.id)}">${esc(t.name)}</button><small>${playersFor(t.id).length} players</small></div>`).join('')||'<p class="muted">No teams added.</p>';
+ $('teamList').innerHTML=state.teams.map(t=>`<div class="player-row"><div><button type="button" class="team-stat-link" data-team-profile="${esc(t.id)}">${esc(t.name)}</button><small class="team-type-label">${teamTypeLabel(t)}</small></div><small>${playersFor(t.id).length} players</small></div>`).join('')||'<p class="muted">No teams added.</p>';
  document.querySelectorAll('#teamList [data-team-profile]').forEach(button=>button.onclick=()=>{currentTeamId=button.dataset.teamProfile;page('teamProfile')});
  $('playerList').innerHTML=state.players.map(p=>{
   const initial=(p.name?.trim()[0]||'P').toUpperCase();

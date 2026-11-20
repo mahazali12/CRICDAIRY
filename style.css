@@ -139,3 +139,4 @@ body{background:#06331e}
 .team-roster h3{margin-top:0}
 .team-roster .player-stat-link{margin:4px 0}
 @media(max-width:520px){.stats-actions{min-width:0;flex-direction:column;align-items:stretch}.stats-actions select{width:100%}.player-profile-heading{align-items:flex-start}.player-profile-photo{width:64px;height:64px;flex-basis:64px}.profile-stat-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.team-type-label{display:block;color:var(--green)!important;font-size:10px;letter-spacing:.3px}

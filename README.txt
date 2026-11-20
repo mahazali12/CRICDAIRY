@@ -30,6 +30,7 @@ are saved to history automatically, and history cards can share the summary.
 The app also includes a web app manifest, standalone display mode, and offline service-worker cache for phone installation. The home menu uses a full-screen background image, and its square icon is also used for browser and installed-app icons.
 - Player career records include batting, bowling and recorded fielding figures, including appearances, averages, strike/economy rates, best score/figures, 50s/100s, maidens, boundaries, dots, catches, stumpings, run outs and Player of the Match awards. Select a fielder for catches, stumpings and run outs so those fielding figures are credited.
 - Player names open individual career profiles with match-by-match figures; team names open team profiles with rosters, match history and records. Player rankings show run scorers, wicket takers and fielders. Team standings award 2 points for a win and 1 for a tie.
+- Team creation supports a Club team type; choose it when adding a club, and the type appears in team management, team rankings and the team profile. Older teams remain available as Other team.
 
 Planned/partial modules requiring further development:
 - Full Test match multi-innings and follow-on enforcement
