@@ -273,5 +273,16 @@ body{background:#06331e}
 .tournament-team-option small{margin-top:3px;color:var(--muted)}
 .series-actions{display:flex;align-items:center;gap:10px}
 .series-actions button{white-space:nowrap}
+.series-create-form{display:grid;grid-template-columns:minmax(180px,1fr) 180px auto;gap:10px;align-items:end}
+.series-create-form label{display:flex;flex-direction:column;gap:7px;margin:0;color:var(--muted);font-size:12px}
+.series-create-form input{margin:0}
+.series-buttons{display:flex;gap:8px}
+.series-edit-form{margin:12px 0;padding:14px;background:var(--panel2);border:1px solid var(--line);border-radius:11px}
+.series-edit-form>label{display:flex;flex-direction:column;gap:7px;margin:10px 0;color:var(--muted);font-size:12px}
+.series-edit-teams>b{display:block;margin:12px 0 6px;font-size:12px}
+.series-team-option{display:flex!important;flex-direction:row!important;align-items:center;gap:8px;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:9px}
+.series-team-option input{width:auto!important}
+.series-team-option span,.series-team-option small{display:block}
+.series-team-option small{margin-top:3px;color:var(--muted)}
 #scorecard .report-brand img{display:none!important}
-@media(max-width:650px){.series-actions{align-items:flex-start;flex-direction:column}}
+@media(max-width:650px){.series-create-form{grid-template-columns:1fr}.series-create-form button{width:100%}.series-actions{align-items:flex-start;flex-direction:column}.series-buttons{width:100%}.series-buttons button{flex:1}}

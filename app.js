@@ -1,4 +1,4 @@
-let state, currentId=null, currentPlayerId=null, currentTeamId=null, scorecardMatchId=null, scorecardInningsIndex=0, undoStack=[], lang='en', saveRevision=0, pendingDelivery=null, installPromptEvent=null, swipeStart=null;
+let state, currentId=null, currentPlayerId=null, currentTeamId=null, scorecardMatchId=null, scorecardInningsIndex=0, undoStack=[], lang='en', saveRevision=0, pendingDelivery=null, installPromptEvent=null, swipeStart=null, editingTournamentId=null;
 const $=id=>document.getElementById(id), uid=()=>Math.random().toString(36).slice(2,10);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(s){$('toast').textContent=s;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2300)}
@@ -64,7 +64,7 @@ function normalizeState(data){
   teams:Array.isArray(data?.teams)?data.teams:defaults.teams,
   players:(Array.isArray(data?.players)?data.players:defaults.players).map(p=>({...p,photo:typeof p.photo==='string'?p.photo:'',stats:p.stats||{runs:0,balls:0,wickets:0,matches:0}})),
   matches:Array.isArray(data?.matches)?data.matches:defaults.matches,
-  tournaments:(Array.isArray(data?.tournaments)?data.tournaments:defaults.tournaments).map(series=>({...series,teamIds:Array.isArray(series.teamIds)?series.teamIds:[]})),
+  tournaments:(Array.isArray(data?.tournaments)?data.tournaments:defaults.tournaments).map(series=>({...series,teamIds:Array.isArray(series.teamIds)?series.teamIds:[],matchCount:Math.max(1,Number(series.matchCount)||1)})),
   settings:{...defaults.settings,...(data?.settings||{}),lang:'en'},
   playingDraft:data?.playingDraft||null,
   playingSelection:data?.playingSelection||null
@@ -152,6 +152,7 @@ function setup(){
  $('pickBowler').onchange=e=>{const m=activeMatch();if(m){m.bowler=e.target.value;save()}};
  $('endInnings').onclick=endInnings;$('startNextInnings').onclick=startNextInnings;$('finishMatch').onclick=finishMatch;$('backLive').onclick=()=>page('live');$('printScore').textContent='Print / Save PDF';$('printScore').onclick=printMatchReport;
  $('shareMatch').onclick=shareMatch;
+ if($('reportShare'))$('reportShare').onclick=()=>{const id=$('reportMatch').value;if(id){currentId=id;shareMatch()}else toast('Choose a match to share')};
  $('installApp').onclick=installApp;
  $('historySearch').oninput=renderHistory;
  $('playerStatsSearch').oninput=()=>renderPlayerStats();
@@ -159,7 +160,7 @@ function setup(){
  $('playerStatsTeamFilter').onchange=()=>renderPlayerStats();
  $('playerStatsPlayerFilter').onchange=()=>renderPlayerStats();
  $('teamStatsFilter').onchange=renderTeamStats;
- $('addTournament').onclick=()=>{const n=$('tournamentName').value.trim(),teamIds=Array.from(document.querySelectorAll('.tournament-team-choice:checked')).map(input=>input.value);if(!n)return toast('Enter a series name');if(state.tournaments.some(s=>s.name.toLowerCase()===n.toLowerCase()))return toast('A series with this name already exists');if(new Set(teamIds).size<2)return toast('Select at least two teams or clubs for the series');state.tournaments.push({id:uid(),name:n,teamIds});$('tournamentName').value='';save();toast('Series created. Start its matches from this series card.')};
+ $('addTournament').onclick=createTournament;
  $('exportJson').onclick=exportJson;$('restoreJson').onchange=restoreJson;$('exportCsv').onclick=exportCsv;
  $('reportPrint').onclick=()=>{const id=$('reportMatch').value;if(id){currentId=id;page('scorer');setTimeout(printMatchReport,250)}};
  $('demoBtn').onclick=demo;$('clearDemo').onclick=async()=>{if(!confirm('Delete ALL local teams, players and matches? Export a backup first.'))return;state=Store.defaults();currentId=null;undoStack=[];const cleared=await Store.clear();renderAll();$('saveStatus').textContent=cleared?'Local data cleared':'Could not clear all local data';toast(cleared?'Local data cleared':'Could not clear all local data')};
@@ -849,19 +850,7 @@ function dismissalDescription(inn,playerId,stats){
 }
 async function shareMatch(){
  const m=activeMatch();if(!m)return;
- const text=summaryText(m);
- if(navigator.share){
-  try{await navigator.share({title:`${m.title} — CRICDAIRY`,text});return}
-  catch(error){if(error.name==='AbortError')return}
- }
- try{
-  if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(text);
-  else{
-   const area=document.createElement('textarea');area.value=text;area.style.position='fixed';area.style.opacity='0';document.body.appendChild(area);area.select();
-   const copied=document.execCommand('copy');area.remove();if(!copied)throw new Error('Clipboard access is unavailable');
-  }
-  toast('Match summary copied — paste it to share');
- }catch(error){toast('Sharing is unavailable in this browser')}
+ await shareMatchPdf(m);
 }
 function fillPlayerPick(id,arr,selected){$(id).innerHTML='<option value="">Select player</option>'+arr.map(p=>`<option value="${p.id}" ${p.id===selected?'selected':''}>${esc(p.name)}</option>`).join('')}
 function playerName(id){return state.players.find(p=>p.id===id)?.name||'Not selected'}
@@ -932,6 +921,82 @@ function printMatchReport(){
  $('fullMatchReport').innerHTML=printableMatchReport(m);
  window.print();
 }
+function pdfTextLines(text,width=88){
+ const lines=[];
+ String(text||'').replace(/\r/g,'').split('\n').forEach(paragraph=>{
+  const words=paragraph.trim().split(/\s+/).filter(Boolean);
+  if(!words.length){lines.push('');return}
+  let line='';
+  words.forEach(word=>{
+   if((line+' '+word).trim().length<=width){line=(line+' '+word).trim()}
+   else{if(line)lines.push(line);line=word.length>width?word.slice(0,width):word}
+  });
+  if(line)lines.push(line);
+ });
+ return lines;
+}
+function pdfEscape(text){
+ return String(text||'').replace(/\\/g,'\\\\').replace(/\(/g,'\\(').replace(/\)/g,'\\)').replace(/[^\x20-\x7E]/g,' ');
+}
+function createMatchPdfBlob(m){
+ const title=`${m.title||'CRICDAIRY Match'} — CRICDAIRY Match Report`;
+ const body=summaryText(m);
+ const lines=[title,'','',...pdfTextLines(body)];
+ const pageLines=44,pages=[];
+ for(let i=0;i<lines.length;i+=pageLines)pages.push(lines.slice(i,i+pageLines));
+ if(!pages.length)pages=[[]];
+ let pdf='%PDF-1.4\n';
+ const offsets=[0];
+ const objects=[];
+ objects[1]='<< /Type /Catalog /Pages 2 0 R >>';
+ const kids=pages.map((_,index)=>`${4+index*2} 0 R`).join(' ');
+ objects[2]=`<< /Type /Pages /Kids [${kids}] /Count ${pages.length} >>`;
+ objects[3]='<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>';
+ pages.forEach((page,index)=>{
+  const pageObject=4+index*2,contentObject=pageObject+1;
+  objects[pageObject]=`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 3 0 R >> >> /Contents ${contentObject} 0 R >>`;
+  const commands=['BT','/F1 10 Tf','45 795 Td','12 TL'];
+  page.forEach((line,lineIndex)=>{if(lineIndex===0)commands.push(`(${pdfEscape(line)}) Tj`);else commands.push('T*',`(${pdfEscape(line)}) Tj`)});
+  commands.push('ET');
+  const stream=commands.join('\n');
+  objects[contentObject]=`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
+ });
+ for(let id=1;id<objects.length;id++){
+  if(!objects[id])continue;
+  offsets[id]=pdf.length;
+  pdf+=`${id} 0 obj\n${objects[id]}\nendobj\n`;
+ }
+ const xref=pdf.length;
+ pdf+='xref\n';
+ const used=Array.from({length:objects.length},(_,id)=>id).filter(id=>id>0&&objects[id]);
+ const maxId=objects.length-1;
+ pdf+=`0 ${maxId+1}\n`;
+ pdf+='0000000000 65535 f \n';
+ for(let id=1;id<=maxId;id++)pdf+=objects[id]?`${String(offsets[id]).padStart(10,'0')} 00000 n \n`:'0000000000 00000 f \n';
+ pdf+=`trailer\n<< /Size ${maxId+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+ return new Blob([pdf],{type:'application/pdf'});
+}
+function safeFileName(m){
+ const name=(m.title||'CRICDAIRY match').replace(/[<>:"/\\|?*\x00-\x1F]/g,' ').replace(/\s+/g,' ').trim();
+ return `${name||'CRICDAIRY match'}.pdf`;
+}
+function downloadBlob(blob,name){
+ const url=URL.createObjectURL(blob),link=document.createElement('a');
+ link.href=url;link.download=name;link.style.display='none';document.body.appendChild(link);link.click();link.remove();
+ setTimeout(()=>URL.revokeObjectURL(url),30000);
+}
+async function shareMatchPdf(m){
+ if(!m)return;
+ const blob=createMatchPdfBlob(m),file=new File([blob],safeFileName(m),{type:'application/pdf'});
+ try{
+  if(navigator.share&&(!navigator.canShare||navigator.canShare({files:[file]}))){
+   await navigator.share({title:`${m.title||'CRICDAIRY match'} — PDF`,text:'Full CRICDAIRY match summary and scorecard',files:[file]});
+   toast('Match PDF shared');
+   return;
+  }
+ }catch(error){if(error.name==='AbortError')return}
+ downloadBlob(blob,safeFileName(m));toast('PDF downloaded — open it and use Share');
+}
 function renderAll(){profileMarkup();fillTeamSelects();renderLauncher();renderTeams();renderPlayingPlayerSelectors();renderHistory();renderLive();renderTournaments();fillReportSelect();$('backupInfo').textContent=`${state.matches.length} matches • ${state.teams.length} teams • Auto-saved locally in this browser.`}
 function renderLauncher(){
  $('menuResumeMatch').classList.toggle('hidden',!state.matches.some(m=>m.status==='live'));
@@ -941,7 +1006,7 @@ function resumeLatestMatch(){
  if(!match)return toast('No live match to resume');
  currentId=match.id;page('scorer');toast('Saved match resumed');
 }
-function matchCard(m){return `<div class="match-card"><div><b>${esc(m.title)}</b><small>${esc(team(m.teams[0])?.name||'')} vs ${esc(team(m.teams[1])?.name||'')} • ${esc(m.format)} • ${esc(m.status)}${seriesName(m.seriesId)?' • '+esc(seriesName(m.seriesId)):''}</small><small>${m.innings.map((i,index)=>`${index===0?'1st':'2nd'} Innings — ${esc(team(i.batting)?.name||'')}: ${i.runs}/${i.wickets}`).join(' | ')}${m.status==='completed'&&m.result?' • '+esc(m.result):''}</small></div><div class="match-actions"><button data-open="${esc(m.id)}" class="ghost">${m.status==='live'?'Open / Resume':'Summary'}</button><button data-share="${esc(m.id)}" class="ghost">Share</button></div></div>`}
+function matchCard(m){return `<div class="match-card"><div><b>${esc(m.title)}</b><small>${esc(team(m.teams[0])?.name||'')} vs ${esc(team(m.teams[1])?.name||'')} • ${esc(m.format)} • ${esc(m.status)}${seriesName(m.seriesId)?' • '+esc(seriesName(m.seriesId)):''}</small><small>${m.innings.map((i,index)=>`${index===0?'1st':'2nd'} Innings — ${esc(team(i.batting)?.name||'')}: ${i.runs}/${i.wickets}`).join(' | ')}${m.status==='completed'&&m.result?' • '+esc(m.result):''}</small></div><div class="match-actions"><button data-open="${esc(m.id)}" class="ghost">${m.status==='live'?'Open / Resume':'Summary'}</button><button data-share="${esc(m.id)}" class="ghost">Share PDF</button></div></div>`}
 function seriesName(id){return state.tournaments.find(s=>s.id===id)?.name||''}
 function bindCards(){document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>{currentId=b.dataset.open;page('scorer')});document.querySelectorAll('[data-share]').forEach(b=>b.onclick=()=>{currentId=b.dataset.share;shareMatch()})}
 function renderLive(){$('liveMatches').innerHTML=state.matches.filter(m=>m.status==='live').map(matchCard).join('')||'No live matches.';bindCards()}
@@ -1172,11 +1237,26 @@ function renderTeams(){
  });
  renderPlayerStats();
 }
+function createTournament(){
+ const name=$('tournamentName').value.trim();
+ const matchCount=Number($('tournamentMatchCount').value);
+ const teamIds=Array.from(document.querySelectorAll('.tournament-team-choice:checked')).map(input=>input.value);
+ if(!name)return toast('Enter a series name');
+ if(state.tournaments.some(series=>series.name.trim().toLowerCase()===name.toLowerCase()))return toast('A series with this name already exists');
+ if(!Number.isInteger(matchCount)||matchCount<1||matchCount>99)return toast('Enter a match count from 1 to 99');
+ if(new Set(teamIds).size<2)return toast('Select at least two teams or clubs for the series');
+ state.tournaments.push({id:uid(),name,matchCount,teamIds:[...new Set(teamIds)]});
+ $('tournamentName').value='';
+ $('tournamentMatchCount').value='3';
+ document.querySelectorAll('.tournament-team-choice').forEach(input=>input.checked=false);
+ save();renderAll();toast('Series created. Start matches from this series card.');
+}
 function renderTournaments(){
  renderTournamentTeamPicker();
  $('tournamentList').innerHTML=state.tournaments.map(series=>{
   const matches=state.matches.filter(m=>m.seriesId===series.id);
   const completed=matches.filter(m=>m.status==='completed');
+  const matchCount=Math.max(1,Number(series.matchCount)||1);
   const teamIds=Array.isArray(series.teamIds)&&series.teamIds.length?series.teamIds.filter(id=>team(id)):[...new Set(matches.flatMap(match=>match.teams||[]))];
   const records=new Map(teamIds.map(id=>[id,{wins:0,ties:0}]));
   completed.forEach(m=>{
@@ -1189,13 +1269,36 @@ function renderTournaments(){
   });
   const teams=teamIds.map(id=>team(id)?.name||'Team');
   const participantText=teams.length?teams.map(esc).join(' • '):'No teams assigned; choose teams when starting the match.';
-  const canStart=teamIds.length>=2||state.teams.length>=2;
+  const canStart=(teamIds.length>=2||state.teams.length>=2)&&matches.length<matchCount;
   const recordText=[...records].map(([id,record])=>`${team(id)?.name||'Team'} ${record.wins}W/${record.ties}T`).join(' • ');
-  return `<div class="series-card"><div class="section-head"><div><b>🏆 ${esc(series.name)}</b><small>${matches.length} match${matches.length===1?'':'es'} • ${completed.length} completed</small><small>Teams / clubs: ${participantText}</small></div><div class="series-actions"><div class="series-record">${esc(recordText||'No results yet')}</div><button class="primary" data-start-series="${esc(series.id)}" ${canStart?'':'disabled'}>Start match</button></div></div>${matches.length?matches.map(m=>`<div class="series-match"><span>${esc(m.title)}</span><small>${esc(m.status)}${m.result?' • '+esc(m.result):''}</small><button class="ghost" data-open="${esc(m.id)}">Open</button></div>`).join(''):'<p class="muted">No matches linked yet.</p>'}</div>`;
+  const progressText=`${matches.length}/${matchCount} matches • ${completed.length} completed`;
+  const editMode=editingTournamentId===series.id;
+  const editTeamOptions=state.teams.map(item=>`<label class="series-team-option"><input type="checkbox" class="edit-tournament-team-choice" value="${esc(item.id)}" ${teamIds.includes(item.id)?'checked':''}><span>${esc(item.name)}<small>${teamTypeLabel(item)}</small></span></label>`).join('');
+  const editMarkup=editMode?`<div class="series-edit-form"><label>Series name<input id="editTournamentName" value="${esc(series.name)}" maxlength="80"></label><label>Number of matches<input id="editTournamentMatchCount" type="number" min="1" max="99" value="${matchCount}"></label><div class="series-edit-teams"><b>Teams / clubs</b><div class="tournament-team-picker">${editTeamOptions||'<p class="muted">Add teams or clubs first.</p>'}</div></div><div class="actions"><button class="primary" data-save-series="${esc(series.id)}">Save changes</button><button class="ghost" data-cancel-series="${esc(series.id)}">Cancel</button></div></div>`:'';
+  return `<div class="series-card"><div class="section-head"><div><b>🏆 ${esc(series.name)}</b><small>${progressText}</small><small>${teamIds.length} team${teamIds.length===1?'':'s'} / club${teamIds.length===1?'':'s'}: ${participantText}</small></div><div class="series-actions"><div class="series-record">${esc(recordText||'No results yet')}</div><div class="series-buttons"><button class="ghost" data-edit-series="${esc(series.id)}">${editMode?'Editing':'Edit series'}</button><button class="primary" data-start-series="${esc(series.id)}" ${canStart?'':'disabled'}>${matches.length>=matchCount?'Series complete':'Start match'}</button></div></div></div>${editMarkup}${matches.length?matches.map(m=>`<div class="series-match"><span>${esc(m.title)}</span><small>${esc(m.status)}${m.result?' • '+esc(m.result):''}</small><button class="ghost" data-open="${esc(m.id)}">Open</button></div>`).join(''):'<p class="muted">No matches linked yet.</p>'}</div>`;
  }).join('')||'<p class="muted">No series created yet.</p>';
  document.querySelectorAll('[data-start-series]').forEach(button=>button.onclick=()=>startSeriesMatch(button.dataset.startSeries));
+ document.querySelectorAll('[data-edit-series]').forEach(button=>button.onclick=()=>{editingTournamentId=editingTournamentId===button.dataset.editSeries?null:button.dataset.editSeries;renderTournaments()});
+ document.querySelectorAll('[data-save-series]').forEach(button=>button.onclick=()=>saveTournamentEdit(button.dataset.saveSeries));
+ document.querySelectorAll('[data-cancel-series]').forEach(button=>button.onclick=()=>{editingTournamentId=null;renderTournaments()});
  bindCards();
  $('pointsTable').innerHTML='';
+}
+function saveTournamentEdit(seriesId){
+ const series=state.tournaments.find(item=>item.id===seriesId);
+ if(!series)return toast('Series not found');
+ const name=$('editTournamentName').value.trim();
+ const matchCount=Number($('editTournamentMatchCount').value);
+ const teamIds=Array.from(document.querySelectorAll('.edit-tournament-team-choice:checked')).map(input=>input.value);
+ if(!name)return toast('Enter a series name');
+ if(state.tournaments.some(item=>item.id!==seriesId&&item.name.trim().toLowerCase()===name.toLowerCase()))return toast('A series with this name already exists');
+ if(!Number.isInteger(matchCount)||matchCount<1||matchCount>99)return toast('Enter a match count from 1 to 99');
+ if(new Set(teamIds).size<2)return toast('Select at least two teams or clubs');
+ series.name=name;
+ series.matchCount=matchCount;
+ series.teamIds=[...new Set(teamIds)];
+ editingTournamentId=null;
+ save();renderAll();toast('Series updated.');
 }
 function renderTournamentTeamPicker(){
  const picker=$('tournamentTeamPicker');
