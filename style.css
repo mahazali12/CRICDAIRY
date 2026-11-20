@@ -61,9 +61,16 @@
 .player-option input{width:auto;margin:0 8px 0 0}
 .custom-players>button{background:#20c653;color:white;border:0;padding:12px 20px;border-radius:8px;cursor:pointer}
 .playing-player-list{max-height:270px;overflow:auto}
+.playing-player-add{margin-top:10px}
+.playing-player-add input{flex:1}
+.match-player-panel{margin:12px 0}
+.match-player-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:end}
+.match-player-fields label{min-width:0}
+.match-player-fields button{margin:10px 0}
 .selection-count{display:block;color:var(--muted);font-size:11px;margin:2px 0 8px}
 .custom-players #selectionMessage{min-height:1em;margin:10px 0 0;color:var(--green)}
 @media(max-width:700px){.playing-teams{grid-template-columns:1fr}}
+@media(max-width:700px){.match-player-fields{grid-template-columns:1fr}}
 
 /* Admin profile and fixed CRICDAIRY branding */
 .profile-avatar{display:inline-flex;align-items:center;justify-content:center;object-fit:cover;border-radius:50%;background:linear-gradient(145deg,#1b6338,#10271a);border:2px solid #35d879;color:#eaffef}
