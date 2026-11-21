@@ -792,7 +792,7 @@ function bowlingFigures(stats){
   strike:wickets?(legal/wickets).toFixed(2):'—'
  };
 }
-async function finishMatch(){const m=activeMatch();if(!m||m.status!=='live')return;if(!confirm('Finish this match now?'))return;completeMatchState(m);await save();page('history')}
+async function finishMatch(){const m=activeMatch();if(!m||m.status!=='live')return;if(!confirm('Finish this match now?'))return;completeMatchState(m);await save();scorecardInningsIndex=Math.max(0,m.innings.length-1);renderScorer();toast('Match completed — summary and scorecard are ready')}
 function renderScorer(){
  const m=activeMatch();if(!m)return;
  if(scorecardMatchId!==m.id){scorecardMatchId=m.id;scorecardInningsIndex=Number.isInteger(m.current)?m.current:0}
@@ -939,6 +939,7 @@ function summaryText(m){
 function renderMatchSummary(m){
  const innings=(m.innings||[]).map((inn,index)=>`<div class="summary-score"><b>${inningsOrdinal(index)} Innings — ${esc(matchTeamName(inn.batting))}</b><span>${inn.runs}/${inn.wickets}</span><small>${Math.floor(inn.legal/6)}.${inn.legal%6} overs</small></div>`).join('');
  $('matchSummary').innerHTML=`<div class="summary-result"><b>${esc(m.status==='completed'?m.result||'Result pending':'Match in progress')}</b><span>${esc(m.title)}</span>${seriesName(m.seriesId)?`<small>Series: ${esc(seriesName(m.seriesId))}</small>`:''}</div><div class="summary-scores">${innings}</div>`;
+ renderCompletedScorecard(m);
  const potm=$('playerOfMatch'),player=m.playerOfTheMatch,candidates=matchParticipantIds(m).sort((a,b)=>playerName(a).localeCompare(playerName(b)));
  potm.classList.toggle('hidden',m.status!=='completed');
  if(m.status!=='completed'){potm.innerHTML='';return}
@@ -950,6 +951,25 @@ function renderMatchSummary(m){
   m.playerOfTheMatch=selected||null;
   await save();renderScorer();
  };
+}
+function renderCompletedScorecard(m){
+ const card=$('completedScorecard');
+ card.classList.toggle('hidden',m.status!=='completed');
+ if(m.status!=='completed'){card.innerHTML='';return}
+ const innings=(m.innings||[]).map((inn,index)=>{
+  const batters=Object.entries(inn.batters||{}).sort((a,b)=>(Number(b[1].runs)||0)-(Number(a[1].runs)||0));
+  const bowlers=Object.entries(inn.bowlers||{}).sort((a,b)=>(Number(b[1].wickets)||0)-(Number(a[1].wickets)||0)||(Number(a[1].runs)||0)-(Number(b[1].runs)||0));
+  const batting=batters.map(([id,stats])=>{
+   const runs=Number(stats.runs)||0,balls=Number(stats.balls)||0;
+   return `<div class="completed-score-row"><span>${esc(playerName(id))}</span><b>${runs}${stats.out?'':'*'} (${balls})</b><small>${Number(stats.fours)||0} fours • ${Number(stats.sixes)||0} sixes</small></div>`;
+  }).join('')||'<p class="muted">No batting data</p>';
+  const bowling=bowlers.map(([id,stats])=>{
+   const figures=bowlingFigures(stats);
+   return `<div class="completed-score-row"><span>${esc(playerName(id))}</span><b>${Number(stats.wickets)||0}-${Number(stats.runs)||0}</b><small>${figures.overs} overs • Econ ${figures.economy}</small></div>`;
+  }).join('')||'<p class="muted">No bowling data</p>';
+  return `<section class="completed-innings ${index===0?'completed-innings-a':'completed-innings-b'}"><header><div><small>${inningsOrdinal(index)} Innings</small><b>${esc(matchTeamName(inn.batting))}</b></div><strong>${Number(inn.runs)||0}-${Number(inn.wickets)||0}</strong></header><div class="completed-score-columns"><div><h4>Batting</h4>${batting}</div><div><h4>Bowling</h4>${bowling}</div></div></section>`;
+ }).join('');
+ card.innerHTML=`<div class="completed-result"><small>MATCH RESULT</small><b>${esc(m.result||'Match completed')}</b></div>${innings}`;
 }
 function renderMatchOutcome(m){
  const completed=m.status==='completed',outcome=$('matchOutcome');
@@ -1047,6 +1067,7 @@ function printableMatchReport(m){
  const player=m.playerOfTheMatch;
  const performance=player?playerPerformanceLines(m,player):[];
  const award=player?`<section class="report-award"><h2>Player of the Match — ${esc(playerName(player))}</h2>${performance.map(line=>`<p>${esc(line)}</p>`).join('')||'<p>No batting, bowling, or fielding figures recorded.</p>'}</section>`:'';
+ const result=m.status==='completed'?`<p class="report-result"><b>MATCH RESULT: ${esc(m.result||'Match completed')}</b></p>`:'';
  const inningsSummary=(m.innings||[]).map((inn,index)=>{
   const battingRows=Object.entries(inn.batters||{}).map(([id,stats])=>{
    const runs=Number(stats.runs)||0,balls=Number(stats.balls)||0;
@@ -1063,7 +1084,7 @@ function printableMatchReport(m){
   return `<section class="compact-summary-innings"><h2>${esc(matchTeamName(inn.batting))} ${Number(inn.runs)||0}-${Number(inn.wickets)||0} in ${Math.floor((Number(inn.legal)||0)/6)}.${(Number(inn.legal)||0)%6} Overs</h2>${battingTable||'<p>No batting figures recorded</p>'}${bowlingTable||'<p>No bowling figures recorded</p>'}</section>`;
  }).join('');
  const stage=seriesName(m.seriesId)?esc(seriesName(m.seriesId)):esc(m.format||'Match');
- return `<div class="report-document"><div class="report-brand"><b>CRICDAIRY</b><span>${esc(state.settings.profileName||'')}</span></div><h1>${esc(m.title)}</h1><h2 class="report-stage">${stage}</h2><h2 class="report-teams">${esc(teams.join(' vs '))}</h2><p>${metadata}</p>${toss}${inningsSummary}<p class="report-result"><b>${esc(m.status==='completed'?m.result||'Result pending':'Match in progress')}</b></p>${award}<p class="report-footer">Generated by CRICDAIRY</p></div>`;
+ return `<div class="report-document"><div class="report-brand"><b>CRICDAIRY</b><span>${esc(state.settings.profileName||'')}</span></div><h1>${esc(m.title)}</h1><h2 class="report-stage">${stage}</h2><h2 class="report-teams">${esc(teams.join(' vs '))}</h2><p>${metadata}</p>${toss}${result}${inningsSummary}${award}<p class="report-footer">Generated by CRICDAIRY</p></div>`;
 }
 function printMatchReport(){
  const m=activeMatch();if(!m)return;
@@ -1092,6 +1113,9 @@ function createMatchPdfBlob(m){
  const teams=(m.teams||[]).map(matchTeamName);
  const stage=seriesName(m.seriesId)||modeLabel(m.mode)||m.format||'Match';
  const lines=[title,stage,teams.join(' vs '),''];
+ if(m.status==='completed'){
+  lines.push(`MATCH RESULT: ${m.result||'Match completed'}`,'');
+ }
  (m.innings||[]).forEach((inn,index)=>{
   lines.push(`${matchTeamName(inn.batting)} ${Number(inn.runs)||0}-${Number(inn.wickets)||0} in ${Math.floor((Number(inn.legal)||0)/6)}.${(Number(inn.legal)||0)%6} Overs`);
   lines.push('');

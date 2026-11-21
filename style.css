@@ -324,3 +324,25 @@ body{background:#06331e}
 .series-team-option small{margin-top:3px;color:var(--muted)}
 #scorecard .report-brand img{display:none!important}
 @media(max-width:650px){.series-create-form{grid-template-columns:1fr}.series-create-form button{width:100%}.series-actions{align-items:flex-start;flex-direction:column}.series-buttons{width:100%}.series-buttons button{flex:1}.series-edit-actions{align-items:stretch;flex-direction:column}.series-edit-actions .actions,.series-edit-actions>.danger{width:100%}.series-edit-actions .actions button{flex:1}}
+
+.completed-scorecard{display:grid;gap:10px;margin:14px 0;border:1px solid #2b7042;border-radius:14px;padding:10px;background:linear-gradient(145deg,#0b1b12,#101d15)}
+.completed-result{text-align:center;padding:12px;border-bottom:1px solid #3a6047}
+.completed-result small{display:block;color:var(--green);font-size:10px;font-weight:800;letter-spacing:1.5px}
+.completed-result b{display:block;margin-top:5px;color:#effff3;font-size:17px}
+.completed-innings{overflow:hidden;border:1px solid #315541;border-radius:10px;background:#eef4ef;color:#172219}
+.completed-innings header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#174327;color:white}
+.completed-innings-b header{background:#172f58}
+.completed-innings header small,.completed-innings header b{display:block}
+.completed-innings header small{font-size:9px;letter-spacing:1px;text-transform:uppercase;opacity:.78;margin-bottom:3px}
+.completed-innings header strong{font-size:24px;white-space:nowrap}
+.completed-score-columns{display:grid;grid-template-columns:1fr 1fr}
+.completed-score-columns>div{min-width:0;padding:8px 10px}
+.completed-score-columns>div+div{border-left:1px solid #cbd8cf}
+.completed-score-columns h4{margin:0 0 5px;font-size:11px;color:#4d6455;text-transform:uppercase}
+.completed-score-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 8px;padding:5px 0;border-top:1px solid #d6dfd8;font-size:11px}
+.completed-score-row:first-of-type{border-top:0}
+.completed-score-row span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.completed-score-row b{text-align:right}
+.completed-score-row small{grid-column:1/-1;color:#647267;font-size:9px}
+.completed-score-columns .muted{font-size:11px;color:#647267}
+@media(max-width:650px){.completed-score-columns{grid-template-columns:1fr}.completed-score-columns>div+div{border-left:0;border-top:1px solid #cbd8cf}.completed-innings header strong{font-size:20px}}
