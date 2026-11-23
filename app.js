@@ -1,4 +1,4 @@
-let state, currentId=null, currentPlayerId=null, currentTeamId=null, scorecardMatchId=null, scorecardInningsIndex=0, undoStack=[], lang='en', saveRevision=0, pendingDelivery=null, installPromptEvent=null, swipeStart=null, editingTournamentId=null, editingMatchId=null, editingTeamPlayerId=null, matchSetupStep=1;
+let state, currentId=null, currentPlayerId=null, currentTeamId=null, scorecardMatchId=null, scorecardInningsIndex=0, undoStack=[], lang='en', saveRevision=0, pendingDelivery=null, installPromptEvent=null, swipeStart=null, editingTournamentId=null, editingMatchId=null, editingTeamPlayerId=null, matchSetupStep=1, matchPerformanceTeamId=null;
 const $=id=>document.getElementById(id), uid=()=>Math.random().toString(36).slice(2,10);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(s){$('toast').textContent=s;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2300)}
@@ -96,10 +96,17 @@ function normalizeState(data){
    wicketLimit:Number(i.wicketLimit)||Math.max(1,(lineups[i.batting]||[]).length-1)
   })):[newInnings(teams[0]||'',teams[1]||'',lineups[teams[0]]||[],m.mode||'standard')];
   const reserves=m.reserves&&typeof m.reserves==='object'?m.reserves:{};
-  const wicketkeepers=m.wicketkeepers&&typeof m.wicketkeepers==='object'?m.wicketkeepers:{};
-  const captains=m.captains&&typeof m.captains==='object'?m.captains:{[teams[0]]:'',[teams[1]]:''};
-  const playerCounts=m.playerCounts&&typeof m.playerCounts==='object'?m.playerCounts:{[teams[0]]:lineups[teams[0]]?.length||1,[teams[1]]:lineups[teams[1]]?.length||1};
-  return {...m,teams,lineups,reserves,wicketkeepers,captains,playerCounts,mode:m.mode==='custom'?'custom':'standard',seriesId:m.seriesId||'',innings,current:Number.isInteger(m.current)?m.current:0,inningsBreak:Boolean(m.inningsBreak),pendingOpeningSelection:Boolean(m.pendingOpeningSelection),pendingBowler:Boolean(m.pendingBowler),pendingBatterSlot:['striker','non'].includes(m.pendingBatterSlot)?m.pendingBatterSlot:''};
+  const wicketkeepers=m.wicketkeepers&&typeof m.wicketkeepers==='object'?{...m.wicketkeepers}:{};
+  const captains=m.captains&&typeof m.captains==='object'?{...m.captains}:{};
+  const fielders=Object.fromEntries(teams.map(teamId=>[teamId,Array.isArray(m.fielders?.[teamId])?m.fielders[teamId]:[]]));
+  const offFielders=Object.fromEntries(teams.map(teamId=>[teamId,Array.isArray(m.offFielders?.[teamId])?m.offFielders[teamId]:[]]));
+  teams.forEach(teamId=>{
+   const lineup=lineups[teamId]||[];
+   if(!Object.prototype.hasOwnProperty.call(wicketkeepers,teamId))wicketkeepers[teamId]=lineup.find(id=>state.players.some(player=>player.id===id&&player.role==='Wicketkeeper'))||null;
+   if(!Object.prototype.hasOwnProperty.call(captains,teamId))captains[teamId]=team(teamId)?.captainId&&lineup.includes(team(teamId).captainId)?team(teamId).captainId:'';
+  });
+  const playerCounts=Object.fromEntries(teams.map(teamId=>[teamId,Math.max(1,Number(m.playerCounts?.[teamId])||(m.mode==='custom'?lineups[teamId]?.length||1:11))]));
+  return {...m,teams,lineups,reserves,wicketkeepers,captains,fielders,offFielders,playerCounts,mode:m.mode==='custom'?'custom':'standard',seriesId:m.seriesId||'',innings,current:Number.isInteger(m.current)?m.current:0,inningsBreak:Boolean(m.inningsBreak),pendingOpeningSelection:Boolean(m.pendingOpeningSelection),pendingBowler:Boolean(m.pendingBowler),pendingBatterSlot:['striker','non'].includes(m.pendingBatterSlot)?m.pendingBatterSlot:''};
  });
  return normalized;
 }
@@ -162,21 +169,23 @@ function setup(){
  $('recordDelivery').onclick=()=>recordPendingDelivery();
  $('cancelDelivery').onclick=closeDeliveryPanel;
  $('matchPlayerTeam').onchange=()=>renderMatchPlayerControls(activeMatch());
+ $('matchPlayerSource').onchange=()=>{ $('matchExistingPlayer').value='';$('matchNewPlayerName').value='';renderMatchPlayerControls(activeMatch()) };
  $('matchPlayerEditSelect').onchange=loadMatchPlayerEditForm;
  $('addMatchPlayer').onclick=addMatchPlayer;
  $('saveMatchPlayerEdit').onclick=saveMatchPlayerEdit;
  $('saveMatchSubstitution').onclick=substituteMatchPlayer;
  $('saveMatchWK').onclick=changeMatchWicketkeeper;
  $('matchSubTeam').onchange=()=>renderMatchSubstitutionControls(activeMatch());
+ $('matchSubAction').onchange=()=>renderMatchSubstitutionControls(activeMatch());
  $('matchWKTeam').onchange=()=>renderMatchSubstitutionControls(activeMatch());
+ ['A','B'].forEach(teamKey=>{
+  $(`playingCaptain${teamKey}`).onchange=persistPlayingDraft;
+  $(`playingWicketkeeper${teamKey}`).onchange=persistPlayingDraft;
+ });
  $('matchSeries').onchange=()=>{fillTeamSelects();updateMatchModeInfo();renderPlayingPlayerSelectors()};
  $('playerTeam').onchange=renderTeams;
  $('teamCaptainSelect').onchange=()=>setTeamCaptain($('playerTeam').value,$('teamCaptainSelect').value);
  $('undoBtn').onclick=undo;$('swapBtn').onclick=()=>{const m=activeMatch();if(m&&m.non){[m.striker,m.non]=[m.non,m.striker];save()}};
- $('changeBowler').onclick=()=>{const m=activeMatch();if(!m)return;const v=$('pickBowler').value;if(v){m.bowler=v;save()}};
- $('pickStriker').onchange=e=>{const m=activeMatch();if(m){if(e.target.value&&e.target.value===m.non){toast('Choose a different non-striker');renderScorer();return}m.striker=e.target.value;save()}};
- $('pickNon').onchange=e=>{const m=activeMatch();if(m){if(e.target.value&&e.target.value===m.striker){toast('Choose a different striker');renderScorer();return}m.non=e.target.value;save()}};
- $('pickBowler').onchange=e=>{const m=activeMatch();if(m){m.bowler=e.target.value;save()}};
  $('endInnings').onclick=endInnings;$('startNextInnings').onclick=startNextInnings;$('finishMatch').onclick=finishMatch;$('backLive').onclick=()=>page('live');$('printScore').textContent='Print / Save PDF';$('printScore').onclick=printMatchReport;
  $('shareMatch').onclick=shareMatch;
  if($('reportShare'))$('reportShare').onclick=()=>{const id=$('reportMatch').value;if(id){currentId=id;shareMatch()}else toast('Choose a match to share')};
@@ -263,8 +272,21 @@ function selectedPlayingIds(teamKey){
  return Array.from(document.querySelectorAll(`.select-${teamKey}:checked`)).map(input=>input.value);
 }
 function updatePlayingCounts(){
- $('selectedCountA').textContent=`${selectedPlayingIds('A').length} selected`;
- $('selectedCountB').textContent=`${selectedPlayingIds('B').length} selected`;
+ ['A','B'].forEach(teamKey=>{
+  $('selectedCount'+teamKey).textContent=`${selectedPlayingIds(teamKey).length}/${Number($('count'+teamKey).value)||0} players selected`;
+ });
+}
+function renderPlayingRoleSelectors(teamKey,teamId,lineupIds,saved){
+ const captainSelect=$(`playingCaptain${teamKey}`),wicketkeeperSelect=$(`playingWicketkeeper${teamKey}`);
+ const savedCaptain=`captain${teamKey}`,savedWicketkeeper=`wicketkeeper${teamKey}`;
+ const teamCaptain=team(teamId)?.captainId||'';
+ const currentCaptain=captainSelect.value||((saved&&Object.prototype.hasOwnProperty.call(saved,savedCaptain))?saved[savedCaptain]:teamCaptain);
+ const currentWicketkeeper=wicketkeeperSelect.value||((saved&&Object.prototype.hasOwnProperty.call(saved,savedWicketkeeper))?saved[savedWicketkeeper]:lineupIds.find(id=>state.players.some(player=>player.id===id&&player.role==='Wicketkeeper'))||'');
+ const options=lineupIds.map(id=>`<option value="${esc(id)}">${esc(playerName(id))}</option>`).join('');
+ captainSelect.innerHTML='<option value="">Not selected</option>'+options;
+ wicketkeeperSelect.innerHTML='<option value="">Not selected</option>'+options;
+ captainSelect.value=lineupIds.includes(currentCaptain)?currentCaptain:'';
+ wicketkeeperSelect.value=lineupIds.includes(currentWicketkeeper)?currentWicketkeeper:'';
 }
 function fillReserveSelect(teamKey,lineupIds,selected=''){
  const teamId=$(`team${teamKey}`).value;
@@ -295,7 +317,7 @@ function showMatchSetupStep(step){
  $('playingPlayersHeading').textContent=teamASetup?`${team($('teamA').value)?.name||'Team A'} Playing XI`:teamBSetup?`${team($('teamB').value)?.name||'Team B'} Playing XI`:'🏏 Select Playing XI';
  $('confirmPlayers').textContent=teamASetup?'Confirm Team A XI — Next':'Confirm Team B XI — Next: Toss';
  $('backPlayingStep').textContent=teamASetup?'Back: Match Details':'Back: Team A XI';
- if(teamASetup||teamBSetup)$('selectionMessage').textContent=`Select exactly ${$('count'+(teamASetup?'A':'B')).value} players for Team ${teamASetup?'A':'B'}, then confirm.`;
+ if(teamASetup||teamBSetup){const key=teamASetup?'A':'B';$('selectionMessage').textContent=`Select up to ${$('count'+key).value} players; ${selectedPlayingIds(key).length}/${$('count'+key).value} selected. Any remaining players can be added during the match.`}
  $('matchModeHint').textContent=details?'Enter match details and choose both teams to begin setup.':teamASetup||teamBSetup?'Select up to the chosen player count now. You can add the remaining players during the match.':'Select the toss winner and batting decision, then start the match.';
 }
 function nextMatchDetails(){
@@ -322,12 +344,15 @@ function renderPlayingPlayerSelectors(){
  const selectedB=Array.isArray(saved?.playersB)?saved.playersB:rosterB.slice(0,countB).map(p=>p.id);
  $('playersA').innerHTML=rosterA.length?rosterA.map(p=>`<label class="player-option"><input type="checkbox" class="select-A" value="${esc(p.id)}" ${selectedA.includes(p.id)?'checked':''}>${esc(p.name)}${team(setup.a)?.captainId===p.id?' <small class="captain-badge">C</small>':''}${p.role==='Wicketkeeper'?' <small class="wk-badge">WK</small>':''}</label>`).join(''):'<p class="muted">Add players to this team first.</p>';
  $('playersB').innerHTML=rosterB.length?rosterB.map(p=>`<label class="player-option"><input type="checkbox" class="select-B" value="${esc(p.id)}" ${selectedB.includes(p.id)?'checked':''}>${esc(p.name)}${team(setup.b)?.captainId===p.id?' <small class="captain-badge">C</small>':''}${p.role==='Wicketkeeper'?' <small class="wk-badge">WK</small>':''}</label>`).join(''):'<p class="muted">Add players to this team first.</p>';
- document.querySelectorAll('.select-A,.select-B').forEach(input=>input.onchange=persistPlayingDraft);
+ document.querySelectorAll('.select-A,.select-B').forEach(input=>input.onchange=()=>{renderPlayingRoleSelectors(input.classList.contains('select-A')?'A':'B',input.classList.contains('select-A')?setup.a:setup.b,input.classList.contains('select-A')?selectedPlayingIds('A'):selectedPlayingIds('B'),saved);persistPlayingDraft()});
  fillReserveSelect('A',selectedA,saved?.reserveA);
  fillReserveSelect('B',selectedB,saved?.reserveB);
  $('reserveA').onchange=persistPlayingDraft;$('reserveB').onchange=persistPlayingDraft;
  updatePlayingCounts();
- $('selectionMessage').textContent=matchesSetup(confirmed)?'Playing players confirmed.':`Select up to ${$('count'+(matchSetupStep===3?'B':'A')).value} players for the active team. Remaining spots can be filled during the match.`;
+ const activeKey=matchSetupStep===3?'B':'A';
+ $('selectionMessage').textContent=matchesSetup(confirmed)?'Playing players confirmed.':`Select up to ${$('count'+activeKey).value} players; ${selectedPlayingIds(activeKey).length}/${$('count'+activeKey).value} selected. Remaining spots can be filled during the match.`;
+ renderPlayingRoleSelectors('A',setup.a,selectedA,saved);
+ renderPlayingRoleSelectors('B',setup.b,selectedB,saved);
 }
 function addPlayingPlayer(teamKey){
  const teamId=$(`team${teamKey}`).value,name=$(`newPlayingPlayer${teamKey}`).value.trim();
@@ -340,7 +365,7 @@ function addPlayingPlayer(teamKey){
  const selected=teamPlayers.length<count;
  if(selected)teamPlayers.push(player.id);
  state.playingSelection=null;
- state.playingDraft={teamA:setup.a,teamB:setup.b,mode:setup.mode,countA:Number($('countA').value),countB:Number($('countB').value),playersA,playersB,reserveA:$('reserveA').value||'',reserveB:$('reserveB').value||''};
+ state.playingDraft={teamA:setup.a,teamB:setup.b,mode:setup.mode,countA:Number($('countA').value),countB:Number($('countB').value),playersA,playersB,reserveA:$('reserveA').value||'',reserveB:$('reserveB').value||'',captainA:$('playingCaptainA').value||'',captainB:$('playingCaptainB').value||'',wicketkeeperA:$('playingWicketkeeperA').value||'',wicketkeeperB:$('playingWicketkeeperB').value||''};
  $(`newPlayingPlayer${teamKey}`).value='';
  save();
  toast(selected?'Player added to the team and selected for the lineup.':'Player added to the team. Select them in the lineup; uncheck someone first if it is full.');
@@ -354,6 +379,8 @@ function updatePlayingCount(teamKey){
   const checked=boxes.filter(box=>box.checked);
   if(checked.length>count)checked.slice(count).forEach(box=>box.checked=false);
   else boxes.filter(box=>!box.checked).slice(0,count-checked.length).forEach(box=>box.checked=true);
+  const setup=setupTeams(),teamId=teamKey==='A'?setup.a:setup.b;
+  renderPlayingRoleSelectors(teamKey,teamId,selectedPlayingIds(teamKey),state.playingDraft);
  }
  persistPlayingDraft();
 }
@@ -361,7 +388,7 @@ function persistPlayingDraft(){
  const setup=setupTeams(),playersA=selectedPlayingIds('A'),playersB=selectedPlayingIds('B');
  updatePlayingCounts();
  state.playingSelection=null;
- state.playingDraft={teamA:setup.a,teamB:setup.b,mode:setup.mode,countA:Number($('countA').value),countB:Number($('countB').value),playersA,playersB,reserveA:$('reserveA').value||'',reserveB:$('reserveB').value||''};
+ state.playingDraft={teamA:setup.a,teamB:setup.b,mode:setup.mode,countA:Number($('countA').value),countB:Number($('countB').value),playersA,playersB,reserveA:$('reserveA').value||'',reserveB:$('reserveB').value||'',captainA:$('playingCaptainA').value||'',captainB:$('playingCaptainB').value||'',wicketkeeperA:$('playingWicketkeeperA').value||'',wicketkeeperB:$('playingWicketkeeperB').value||''};
  $('selectionMessage').textContent="Player selection changed. Confirm this team's lineup to continue.";
  const revision=++saveRevision;$('saveStatus').textContent='Saving…';
  Store.save(state).then(ok=>{if(revision===saveRevision)$('saveStatus').textContent=ok?'Saved on this device':'Save failed — export a backup'});
@@ -374,10 +401,12 @@ function savePlayingPlayers(){
  if(!Number.isInteger(count)||count<1||count>15)return toast(`Choose a Team ${teamKey} player count between 1 and 15.`);
  if(players.length>count)return toast(`Select no more than ${count} players for Team ${teamKey}.`);
  const matchesSetup=value=>value&&value.teamA===setup.a&&value.teamB===setup.b&&value.mode===setup.mode;
- const draft=matchesSetup(state.playingDraft)?{...state.playingDraft}:{teamA:setup.a,teamB:setup.b,mode:setup.mode,countA:Number($('countA').value),countB:Number($('countB').value),playersA:selectedPlayingIds('A'),playersB:selectedPlayingIds('B'),reserveA:$('reserveA').value||'',reserveB:$('reserveB').value||''};
+ const draft=matchesSetup(state.playingDraft)?{...state.playingDraft}:{teamA:setup.a,teamB:setup.b,mode:setup.mode,countA:Number($('countA').value),countB:Number($('countB').value),playersA:selectedPlayingIds('A'),playersB:selectedPlayingIds('B'),reserveA:$('reserveA').value||'',reserveB:$('reserveB').value||'',captainA:$('playingCaptainA').value||'',captainB:$('playingCaptainB').value||'',wicketkeeperA:$('playingWicketkeeperA').value||'',wicketkeeperB:$('playingWicketkeeperB').value||''};
  draft[`count${teamKey}`]=count;
  draft[`players${teamKey}`]=players;
  draft[`reserve${teamKey}`]=$(`reserve${teamKey}`).value||'';
+ draft[`captain${teamKey}`]=$(`playingCaptain${teamKey}`).value||'';
+ draft[`wicketkeeper${teamKey}`]=$(`playingWicketkeeper${teamKey}`).value||'';
  state.playingDraft=draft;
  state.playingSelection=null;
  if(teamKey==='A'){
@@ -413,8 +442,13 @@ function renderMatchPlayerControls(m){
  const selectedReplace=$('matchPlayerReplace').value,selectedExisting=$('matchExistingPlayer').value;
  const replaceable=lineup.filter(id=>!matchPlayerHasParticipated(m,id));
  const bench=playersFor(teamId).filter(p=>!lineup.includes(p.id));
+ const source=$('matchPlayerSource').value||'squad';
+ $('matchExistingPlayerField').classList.toggle('hidden',source!=='squad');
+ $('matchNewPlayerNameField').classList.toggle('hidden',source!=='new');
+ $('matchNewPlayerRoleField').classList.toggle('hidden',source!=='new');
  $('matchPlayerReplace').innerHTML='<option value="">Choose player to replace</option>'+replaceable.map(id=>`<option value="${esc(id)}">${esc(playerName(id))}</option>`).join('');
- $('matchExistingPlayer').innerHTML='<option value="">Type a new player name instead</option>'+bench.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
+ $('matchPlayerReplace').options[0].textContent='Add without replacing';
+ $('matchExistingPlayer').innerHTML='<option value="">Select a team player</option>'+bench.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
  const editPlayers=playersFor(teamId);
  $('matchPlayerEditSelect').innerHTML='<option value="">Select player</option>'+editPlayers.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('');
  if(replaceable.includes(selectedReplace))$('matchPlayerReplace').value=selectedReplace;
@@ -423,7 +457,8 @@ function renderMatchPlayerControls(m){
  else $('matchPlayerEditSelect').value=editPlayers[0]?.id||'';
  if(selectedEdit!==$('matchPlayerEditSelect').value)loadMatchPlayerEditForm();
  const targetCount=Number(m.playerCounts?.[teamId])||lineup.length||1;
- $('matchPlayerReplace').options[0].textContent=lineup.length<targetCount?'Add player to lineup':'Choose unused player to replace';
+ $('matchLineupCount').textContent=`Playing XI: ${lineup.length}/${targetCount} players selected`;
+ $('matchPlayerReplace').options[0].textContent=lineup.length<targetCount?'Add without replacing':`Choose a player to replace (${lineup.length}/${targetCount})`;
  $('addMatchPlayer').disabled=false;
  $('saveMatchPlayerEdit').disabled=!$('matchPlayerEditSelect').value;
  renderMatchSubstitutionControls(m);
@@ -455,6 +490,7 @@ function renderMatchSubstitutionControls(m){
  $('matchWKPlayer').innerHTML='<option value="">Select player</option>'+wkOptions.map(id=>{const p=state.players.find(item=>item.id===id);return p?`<option value="${esc(p.id)}">${esc(p.name)}${p.role==='Wicketkeeper'?' (WK)':''}</option>`:''}).join('');
  const currentWK=m.wicketkeepers?.[wkTeamId];
  if(wkOptions.includes(currentWK))$('matchWKPlayer').value=currentWK;
+ $('matchSubActionHint').textContent=$('matchSubAction').value==='field'?'The replacement can field and be selected for catches, stumpings, and run outs; the Playing XI stays unchanged.':'Replace the selected player in the Playing XI.';
 }
 function saveMatchPlayerEdit(){
  const m=activeMatch(),teamId=$('matchPlayerTeam').value,player=state.players.find(item=>item.id===$('matchPlayerEditSelect').value&&item.teamId===teamId),name=$('matchPlayerEditName').value.trim();
@@ -468,6 +504,7 @@ function substituteMatchPlayer(){
  const m=activeMatch();
  if(!m||m.status!=='live')return toast('There is no live match to update');
  const teamId=$('matchSubTeam').value,injuredId=$('matchInjuredPlayer').value,replacementId=$('matchReplacementPlayer').value,newName=$('matchReplacementName').value.trim();
+ const action=$('matchSubAction').value;
  if(!m.teams.includes(teamId))return toast('Select a team in this match');
  if(!injuredId)return toast('Select the injured or replaced player');
  if(replacementId&&newName)return toast('Select a replacement or enter a new name, not both');
@@ -486,8 +523,28 @@ function substituteMatchPlayer(){
   }
   if(lineup.includes(replacement.id))return toast('That player is already in the active lineup');
  }
+ if(action==='field'){
+  m.fielders=m.fielders||{};
+  m.offFielders=m.offFielders||{};
+  m.fielders[teamId]=Array.isArray(m.fielders[teamId])?m.fielders[teamId]:[];
+  m.offFielders[teamId]=Array.isArray(m.offFielders[teamId])?m.offFielders[teamId]:[];
+  if(m.fielders[teamId].includes(replacement.id))return toast('That player is already on the field as a substitute');
+  m.fielders[teamId].push(replacement.id);
+  if(!m.offFielders[teamId].includes(injuredId))m.offFielders[teamId].push(injuredId);
+  m.offFielders[teamId]=m.offFielders[teamId].filter(id=>id!==replacement.id);
+  $('matchReplacementName').value='';$('matchReplacementPlayer').value='';
+  save();renderScorer();toast(`${replacement.name} entered the field as a substitute; the Playing XI is unchanged.`);
+  return;
+ }
  lineup[index]=replacement.id;
  m.lineups=m.lineups||{};m.lineups[teamId]=lineup;
+ m.offFielders=m.offFielders||{};
+ m.offFielders[teamId]=Array.isArray(m.offFielders[teamId])?m.offFielders[teamId]:[];
+ if(!m.offFielders[teamId].includes(injuredId))m.offFielders[teamId].push(injuredId);
+ m.offFielders[teamId]=m.offFielders[teamId].filter(id=>id!==replacement.id);
+ if(m.wicketkeepers?.[teamId]===injuredId)m.wicketkeepers[teamId]=replacement.id;
+ if(m.captains?.[teamId]===injuredId)m.captains[teamId]=replacement.id;
+ if(m.fielders?.[teamId])m.fielders[teamId]=m.fielders[teamId].filter(id=>id!==replacement.id);
  if(m.reserves?.[teamId]===replacementId)m.reserves[teamId]=injuredId;
  if(m.striker===injuredId)m.striker=replacement.id;
  if(m.non===injuredId)m.non=replacement.id;
@@ -519,21 +576,23 @@ function changeMatchWicketkeeper(){
 function addMatchPlayer(){
  const m=activeMatch();
  if(!m||m.status!=='live')return toast('There is no live match to update');
- const teamId=$('matchPlayerTeam').value,replaceId=$('matchPlayerReplace').value,existingId=$('matchExistingPlayer').value,name=$('matchNewPlayerName').value.trim();
+ const teamId=$('matchPlayerTeam').value,replaceId=$('matchPlayerReplace').value,source=$('matchPlayerSource').value;
+ const existingId=source==='squad' ? $('matchExistingPlayer').value : '',name=source==='new' ? $('matchNewPlayerName').value.trim() : '';
  if(!m.teams.includes(teamId))return toast('Select a team in this match');
- if(existingId&&name)return toast('Select an existing player or type a new name, not both');
  const lineup=matchLineup(m,teamId),replaceIndex=replaceId?lineup.indexOf(replaceId):-1;
  if(replaceId&&(replaceIndex<0||matchPlayerHasParticipated(m,replaceId)))return toast('Choose an unused player from the selected team to replace');
  const targetCount=Number(m.playerCounts?.[teamId])||lineup.length||1;
- if(!replaceId&&lineup.length>=targetCount)return toast(`This team already has ${targetCount} selected players. Choose an unused player to replace.`);
+ if(!replaceId&&lineup.length>=targetCount)return toast(`Playing XI is full (${lineup.length}/${targetCount}). Choose an unused player to replace.`);
  let player;
- if(existingId){
+ if(source==='squad'){
+  if(!existingId)return toast('Choose a player from this team');
   player=state.players.find(p=>p.id===existingId&&p.teamId===teamId);
   if(!player||lineup.includes(existingId))return toast('That player is already in this match lineup');
  }else{
-  if(!name)return toast('Select a squad player or enter a new player name');
+  if(!name)return toast('Enter a new player name');
   player=playersFor(teamId).find(p=>p.name.trim().toLowerCase()===name.toLowerCase());
   if(player&&lineup.includes(player.id))return toast('That player is already in this match lineup');
+  if(player)return toast('This player is already in the team. Choose Add from team instead.');
   if(!player){
    player={id:uid(),name,teamId,role:$('matchNewPlayerRole').value,photo:'',stats:{runs:0,balls:0,wickets:0,matches:0}};
    state.players.push(player);
@@ -543,6 +602,12 @@ function addMatchPlayer(){
  else lineup.push(player.id);
  m.lineups=m.lineups||{};
  m.lineups[teamId]=lineup;
+ if(m.wicketkeepers?.[teamId]===replaceId)m.wicketkeepers[teamId]=player.id;
+ if(m.captains?.[teamId]===replaceId)m.captains[teamId]=player.id;
+ if(m.fielders?.[teamId])m.fielders[teamId]=m.fielders[teamId].filter(id=>id!==player.id);
+ m.offFielders=m.offFielders||{};m.offFielders[teamId]=Array.isArray(m.offFielders[teamId])?m.offFielders[teamId]:[];
+ if(replaceId&&!m.offFielders[teamId].includes(replaceId))m.offFielders[teamId].push(replaceId);
+ m.offFielders[teamId]=m.offFielders[teamId].filter(id=>id!==player.id);
  if(m.striker===replaceId)m.striker=player.id;
  if(m.non===replaceId)m.non=player.id;
  if(m.bowler===replaceId)m.bowler=player.id;
@@ -586,10 +651,15 @@ function startMatch(){
  const reserveAId=mode==='standard'?(validSelection&&selection.reserveA?selection.reserveA:$('reserveA').value||''):'';
  const reserveBId=mode==='standard'?(validSelection&&selection.reserveB?selection.reserveB:$('reserveB').value||''):'';
  const reserves={ [a]:availableA.some(p=>p.id===reserveAId)&&!lineupA.includes(reserveAId)?reserveAId:'', [b]:availableB.some(p=>p.id===reserveBId)&&!lineupB.includes(reserveBId)?reserveBId:'' };
- const wicketkeepers={};
- [a,b].forEach(teamId=>{const lineup=lineups[teamId];wicketkeepers[teamId]=lineup.map(id=>state.players.find(p=>p.id===id&&p.role==='Wicketkeeper')?.id).find(Boolean)||null});
- const captains={ [a]:team(a)?.captainId&&lineupA.includes(team(a).captainId)?team(a).captainId:'', [b]:team(b)?.captainId&&lineupB.includes(team(b).captainId)?team(b).captainId:'' };
- const m={id:uid(),title:$('matchTitle').value.trim()||`${team(a).name} vs ${team(b).name}`,format:matchFormat,mode,overs,venue:$('matchVenue').value.trim(),date:$('matchDate').value,teams:[a,b],lineups,reserves,playerCounts:{[a]:countA,[b]:countB},wicketkeepers,captains,seriesId:$('matchSeries').value,toss:{winner,decision:$('tossDecision').value},innings:[first],current:0,status:'live',created:Date.now(),superOver:false,striker:firstLineup[0]||null,non:firstLineup[1]||null,bowler:null,pendingOpeningSelection:true,pendingBowler:false,pendingBatterSlot:''};
+ const wicketkeepers={
+  [a]:Object.prototype.hasOwnProperty.call(selection,'wicketkeeperA')?(lineupA.includes(selection.wicketkeeperA)?selection.wicketkeeperA:null):lineupA.find(id=>state.players.some(p=>p.id===id&&p.role==='Wicketkeeper'))||null,
+  [b]:Object.prototype.hasOwnProperty.call(selection,'wicketkeeperB')?(lineupB.includes(selection.wicketkeeperB)?selection.wicketkeeperB:null):lineupB.find(id=>state.players.some(p=>p.id===id&&p.role==='Wicketkeeper'))||null
+ };
+ const captains={
+  [a]:Object.prototype.hasOwnProperty.call(selection,'captainA')?(lineupA.includes(selection.captainA)?selection.captainA:''):team(a)?.captainId&&lineupA.includes(team(a).captainId)?team(a).captainId:'',
+  [b]:Object.prototype.hasOwnProperty.call(selection,'captainB')?(lineupB.includes(selection.captainB)?selection.captainB:''):team(b)?.captainId&&lineupB.includes(team(b).captainId)?team(b).captainId:''
+ };
+ const m={id:uid(),title:$('matchTitle').value.trim()||`${team(a).name} vs ${team(b).name}`,format:matchFormat,mode,overs,venue:$('matchVenue').value.trim(),date:$('matchDate').value,teams:[a,b],lineups,reserves,fielders:{[a]:[],[b]:[]},offFielders:{[a]:[],[b]:[]},playerCounts:{[a]:countA,[b]:countB},wicketkeepers,captains,seriesId:$('matchSeries').value,toss:{winner,decision:$('tossDecision').value},innings:[first],current:0,status:'live',created:Date.now(),superOver:false,striker:firstLineup[0]||null,non:firstLineup[1]||null,bowler:null,pendingOpeningSelection:true,pendingBowler:false,pendingBatterSlot:''};
  state.matches.unshift(m);currentId=m.id;undoStack=[];save();page('scorer');toast('Match started');
 }
 function newInnings(bat,bowl,lineup=[],mode='standard'){return {batting:bat,bowling:bowl,lineup:[...lineup],wicketLimit:mode==='standard'?Math.max(1,lineup.length-1):lineup.length,runs:0,wickets:0,legal:0,balls:[],batters:{},bowlers:{},extras:{wide:0,noball:0,bye:0,legbye:0,penalty:0},fow:[],partnership:0}}
@@ -599,8 +669,9 @@ function bowler(inn,id){if(!inn.bowlers[id])inn.bowlers[id]={legal:0,runs:0,wick
 function snapshot(m){undoStack.push(JSON.stringify(m));if(undoStack.length>40)undoStack.shift()}
 function needsFielder(kind){return ['Caught','Stumped','Run Out'].includes(kind)}
 function fillFielderSelect(id,m,selected=''){
- const inn=getInnings(m),lineup=m.lineups?.[inn.bowling]||playersFor(inn.bowling).map(p=>p.id);
- $(id).innerHTML='<option value="">Select fielder</option>'+lineup.map(playerId=>state.players.find(p=>p.id===playerId)).filter(Boolean).map(p=>`<option value="${esc(p.id)}" ${p.id===selected?'selected':''}>${esc(p.name)}</option>`).join('');
+ const inn=getInnings(m),lineup=m.lineups?.[inn.bowling]||playersFor(inn.bowling).map(p=>p.id),fielders=m.fielders?.[inn.bowling]||[],offFielders=m.offFielders?.[inn.bowling]||[];
+ const eligible=[...new Set([...lineup.filter(id=>!offFielders.includes(id)),...fielders])];
+ $(id).innerHTML='<option value="">Select fielder</option>'+eligible.map(playerId=>state.players.find(p=>p.id===playerId)).filter(Boolean).map(p=>`<option value="${esc(p.id)}" ${p.id===selected?'selected':''}>${esc(p.name)}${fielders.includes(p.id)&&!lineup.includes(p.id)?' (substitute)':''}</option>`).join('');
 }
 function updateWicketFielderControls(){
  const kind=$('dismissal').value,m=activeMatch(),show=needsFielder(kind);
@@ -896,15 +967,9 @@ function renderScorer(){
  renderWinningPrediction(m,inn);
  renderMatchOutcome(m);
  const lineup=inn.lineup?.length?inn.lineup:playersFor(inn.batting).map(p=>p.id);
- const allBowlPlayers=playersFor(inn.bowling),differentBowlers=allBowlPlayers.filter(p=>p.id!==m.previousOverBowler);
- const batPlayers=lineup.map(id=>state.players.find(p=>p.id===id)).filter(p=>p&&(!inn.batters[p.id]?.out||p.id===m.striker||p.id===m.non)),bowlPlayers=differentBowlers.length?differentBowlers:allBowlPlayers;
  const eligibleBatters=lineup.filter(id=>!inn.batters[id]?.out);
  $('nonPlayerCell').hidden=eligibleBatters.length<2;
- $('nonStrikerPickerLabel').classList.toggle('hidden',eligibleBatters.length<2);
- fillPlayerPick('pickStriker',batPlayers,m.striker);fillPlayerPick('pickNon',batPlayers,m.non);fillPlayerPick('pickBowler',bowlPlayers,m.bowler);
  const selectionPending=Boolean(m.pendingOpeningSelection||m.pendingBatterSlot||m.pendingBowler);
- $('pickStriker').disabled=selectionPending;$('pickNon').disabled=selectionPending;
- $('pickBowler').disabled=selectionPending;$('changeBowler').disabled=selectionPending;
  $('swapBtn').disabled=selectionPending;
  document.querySelectorAll('#scorer [data-run],#scorer [data-extra]').forEach(button=>button.disabled=selectionPending);
  $('wicketBtn').disabled=selectionPending;$('undoBtn').disabled=selectionPending;
@@ -914,8 +979,6 @@ function renderScorer(){
  const bs=inn.batters[m.striker]||{runs:0,balls:0},ns=inn.batters[m.non]||{runs:0,balls:0},bo=inn.bowlers[m.bowler]||{runs:0,wickets:0,legal:0};
  $('strikerName').textContent=playerNameWithCaptain(m.striker,m);$('nonName').textContent=playerNameWithCaptain(m.non,m);$('bowlerName').textContent=playerNameWithCaptain(m.bowler,m);
  $('strikerStats').textContent=`${bs.runs} (${bs.balls})`;$('nonStats').textContent=`${ns.runs} (${ns.balls})`;$('bowlerStats').textContent=`${bo.wickets}-${bo.runs} • ${Math.floor(bo.legal/6)}.${bo.legal%6}`;
- const overGroups=inningsOverGroups(inn);
- $('overLog').innerHTML=overGroups.size?Array.from(overGroups,([over,summary])=>`<div class="over-log-row"><b>Over ${over+1} (${summary.runs} runs):</b> ${summary.balls.map(esc).join(' ')}</div>`).join(''):'No deliveries yet.';
  renderLiveScoringSummary(m,inn);
  renderNextPlayerPrompts(m,inn);
  const atBreak=m.status==='live'&&m.inningsBreak,active=m.status==='live'&&!m.inningsBreak;
@@ -931,6 +994,7 @@ function inningsOrdinal(index){return `${index+1}${index===0?'st':index===1?'nd'
 function matchParticipantIds(m){
  const ids=new Set();
  Object.values(m.lineups||{}).forEach(lineup=>{if(Array.isArray(lineup))lineup.forEach(id=>ids.add(id))});
+ Object.values(m.fielders||{}).forEach(fielders=>{if(Array.isArray(fielders))fielders.forEach(id=>ids.add(id))});
  (m.innings||[]).forEach(inn=>{
   Object.keys(inn.batters||{}).forEach(id=>ids.add(id));
   Object.keys(inn.bowlers||{}).forEach(id=>ids.add(id));
@@ -1017,9 +1081,46 @@ function summaryText(m){
   top?`Top scorer: ${top.name} (${top.runs})`:''
  ].filter(Boolean).join('\n\n');
 }
+function matchTeamPlayerIds(m,teamId){
+ const ids=new Set([...matchLineup(m,teamId),...(m.fielders?.[teamId]||[])]);
+ (m.innings||[]).forEach(inn=>{
+  if(inn.batting===teamId)Object.keys(inn.batters||{}).forEach(id=>ids.add(id));
+  if(inn.bowling===teamId)Object.keys(inn.bowlers||{}).forEach(id=>ids.add(id));
+  (inn.balls||[]).forEach(ball=>{if(ball.fielderId&&state.players.find(player=>player.id===ball.fielderId)?.teamId===teamId)ids.add(ball.fielderId)});
+ });
+ return [...ids].filter(id=>state.players.some(player=>player.id===id&&player.teamId===teamId));
+}
+function matchTeamPresentation(m,teamId){
+ const lineup=matchLineup(m,teamId);
+ return {
+  lineup,
+  fielders:m.fielders?.[teamId]||[],
+  target:Number(m.playerCounts?.[teamId])||lineup.length||1,
+  captain:Object.prototype.hasOwnProperty.call(m.captains||{},teamId)?m.captains[teamId]||'':team(teamId)?.captainId||'',
+  wicketkeeper:Object.prototype.hasOwnProperty.call(m.wicketkeepers||{},teamId)?m.wicketkeepers[teamId]||'':lineup.find(id=>state.players.some(player=>player.id===id&&player.role==='Wicketkeeper'))||''
+ };
+}
+function matchTeamPerformanceLines(m,teamId){
+ const details=matchTeamPresentation(m,teamId);
+ return matchTeamPlayerIds(m,teamId).map(id=>{
+  const badges=[id===details.captain?'Captain':'',id===details.wicketkeeper?'WK':'',details.fielders.includes(id)&&!details.lineup.includes(id)?'fielding substitute':''].filter(Boolean);
+  const performance=playerPerformanceLines(m,id);
+  return [`${playerName(id)}${badges.length?` (${badges.join(', ')})`:''}`,...(performance.length?performance:['No batting, bowling, or fielding figures recorded'])];
+ }).flat();
+}
+function renderMatchTeamPerformance(m,teamId){
+ const details=matchTeamPresentation(m,teamId),{lineup,fielders,captain,wicketkeeper}=details;
+ const players=matchTeamPlayerIds(m,teamId);
+ return players.length?`<div class="team-performance-list">${players.map(id=>{
+  const performance=playerPerformanceLines(m,id),badges=[id===captain?'Captain':'',id===wicketkeeper?'WK':'',fielders.includes(id)&&!lineup.includes(id)?'Fielding substitute':''].filter(Boolean);
+  return `<article class="team-performance-player"><header><b>${esc(playerName(id))}</b>${badges.map(badge=>`<small>${esc(badge)}</small>`).join('')}</header>${performance.length?performance.map(line=>`<p>${esc(line)}</p>`).join(''):'<p class="muted">No batting, bowling, or fielding figures recorded yet.</p>'}</article>`;
+ }).join('')}</div>`:'<p class="muted">No players are selected for this team.</p>';
+}
 function renderMatchSummary(m){
  const innings=(m.innings||[]).map((inn,index)=>`<div class="summary-score"><b>${inningsOrdinal(index)} Innings — ${esc(matchTeamName(inn.batting))}</b><span>${inn.runs}/${inn.wickets}</span><small>${Math.floor(inn.legal/6)}.${inn.legal%6} overs</small></div>`).join('');
- $('matchSummary').innerHTML=`<div class="summary-result"><b>${esc(m.status==='completed'?m.result||'Result pending':'Match in progress')}</b><span>${esc(m.title)}</span>${seriesName(m.seriesId)?`<small>Series: ${esc(seriesName(m.seriesId))}</small>`:''}</div><div class="summary-scores">${innings}</div>`;
+ const selectedTeam=m.teams.includes(matchPerformanceTeamId)?matchPerformanceTeamId:m.teams[0];
+ $('matchSummary').innerHTML=`<div class="summary-result"><b>${esc(m.status==='completed'?m.result||'Result pending':'Match in progress')}</b><span>${esc(m.title)}</span>${seriesName(m.seriesId)?`<small>Series: ${esc(seriesName(m.seriesId))}</small>`:''}</div><div class="summary-scores">${innings}</div><section class="match-performance"><h3>Team player performance</h3><div class="match-performance-tabs" role="tablist">${m.teams.map(teamId=>`<button type="button" class="ghost ${teamId===selectedTeam?'active':''}" role="tab" aria-selected="${teamId===selectedTeam}" data-match-performance-team="${esc(teamId)}">${esc(matchTeamName(teamId))}</button>`).join('')}</div><div class="match-performance-content">${renderMatchTeamPerformance(m,selectedTeam)}</div></section>`;
+ document.querySelectorAll('[data-match-performance-team]').forEach(button=>button.onclick=()=>{matchPerformanceTeamId=button.dataset.matchPerformanceTeam;renderMatchSummary(m)});
  renderCompletedScorecard(m);
  const potm=$('playerOfMatch'),player=m.playerOfTheMatch,candidates=matchParticipantIds(m).sort((a,b)=>playerName(a).localeCompare(playerName(b)));
  potm.classList.toggle('hidden',m.status!=='completed');
@@ -1086,7 +1187,7 @@ function playerNameWithCaptain(playerId,match){
  const name=playerName(playerId);
  if(!match||!playerId)return name;
  const teamId=match.teams.find(id=>match.lineups?.[id]?.includes(playerId));
- const captainId=match.captains?.[teamId]||team(teamId)?.captainId||'';
+ const captainId=Object.prototype.hasOwnProperty.call(match.captains||{},teamId)?match.captains[teamId]||'':team(teamId)?.captainId||'';
  return captainId===playerId?`${name} (C)`:name;
 }
 function resizeImage(file,maxSize){
@@ -1162,10 +1263,22 @@ function printableMatchReport(m){
    return `<div class="summary-bowling-row"><span>${esc(playerName(id))}</span><b>${figures.overs}</b><b>${Number(stats.maidens)||0}</b><b>${Number(stats.runs)||0}</b><b>${Number(stats.wickets)||0}</b><b>${figures.average}</b><b>${figures.economy}</b><b>${figures.strike}</b></div>`;
   }).join('');
   const bowlingTable=bowlingRows?`<div class="summary-bowling"><div class="summary-bowling-row summary-bowling-head"><span>Name</span><b>Overs</b><b>M</b><b>Runs</b><b>Wickets</b><b>Avg</b><b>Econ</b><b>SR</b></div>${bowlingRows}</div>`:'';
-  return `<section class="compact-summary-innings"><h2>${esc(matchTeamName(inn.batting))} ${Number(inn.runs)||0}-${Number(inn.wickets)||0} in ${Math.floor((Number(inn.legal)||0)/6)}.${(Number(inn.legal)||0)%6} Overs</h2>${battingTable||'<p>No batting figures recorded</p>'}${bowlingTable||'<p>No bowling figures recorded</p>'}</section>`;
+  const extras=Object.entries(inn.extras||{}).map(([name,value])=>`${name} ${Number(value)||0}`).join(', ')||'none';
+  const fallOfWickets=(inn.fow||[]).map(item=>`${item.w}-${item.r} (${item.overs}), ${playerName(item.player)}`).join('; ')||'none';
+  return `<section class="compact-summary-innings"><h2>${esc(matchTeamName(inn.batting))} ${Number(inn.runs)||0}-${Number(inn.wickets)||0} in ${Math.floor((Number(inn.legal)||0)/6)}.${(Number(inn.legal)||0)%6} Overs</h2>${battingTable||'<p>No batting figures recorded</p>'}${bowlingTable||'<p>No bowling figures recorded</p>'}<p><b>Extras:</b> ${esc(extras)}<br><b>Fall of wickets:</b> ${esc(fallOfWickets)}</p>${inningsBallHistoryMarkup(inn)}</section>`;
+ }).join('');
+ const teamsSummary=(m.teams||[]).map(teamId=>{
+  const details=matchTeamPresentation(m,teamId);
+  const roster=details.lineup.map(id=>`${esc(playerName(id))}${id===details.captain?' (C)':''}${id===details.wicketkeeper?' (WK)':''}`).join(', ')||'No players selected';
+  const substituteFielders=details.fielders.filter(id=>!details.lineup.includes(id)).map(id=>esc(playerName(id))).join(', ');
+  const players=matchTeamPlayerIds(m,teamId).map(id=>{
+   const performance=playerPerformanceLines(m,id);
+   return `<article class="report-player-performance"><b>${esc(playerName(id))}</b>${performance.map(line=>`<p>${esc(line)}</p>`).join('')||'<p>No batting, bowling, or fielding figures recorded.</p>'}</article>`;
+  }).join('');
+  return `<section class="report-team-performance"><h2>${esc(matchTeamName(teamId))} — Team performance</h2><p><b>Playing XI:</b> ${details.lineup.length}/${details.target} players</p><p><b>Captain:</b> ${details.captain?esc(playerName(details.captain)):'Not selected'} • <b>Wicketkeeper:</b> ${details.wicketkeeper?esc(playerName(details.wicketkeeper)):'Not selected'}</p><p><b>Lineup:</b> ${roster}</p>${substituteFielders?`<p><b>Fielding substitutes:</b> ${substituteFielders}</p>`:''}${players||'<p>No player performance recorded.</p>'}</section>`;
  }).join('');
  const stage=seriesName(m.seriesId)?esc(seriesName(m.seriesId)):esc(m.format||'Match');
- return `<div class="report-document"><div class="report-brand"><b>CRICDAIRY</b><span>${esc(state.settings.profileName||'')}</span></div><h1>${esc(m.title)}</h1><h2 class="report-stage">${stage}</h2><h2 class="report-teams">${esc(teams.join(' vs '))}</h2><p>${metadata}</p>${toss}${result}${inningsSummary}${award}<p class="report-footer">Generated by CRICDAIRY</p></div>`;
+ return `<div class="report-document"><div class="report-brand"><b>CRICDAIRY</b><span>${esc(state.settings.profileName||'')}</span></div><h1>${esc(m.title)}</h1><h2 class="report-stage">${stage}</h2><h2 class="report-teams">${esc(teams.join(' vs '))}</h2><p>${metadata}</p>${toss}${result}${teamsSummary}${inningsSummary}${award}<p class="report-footer">Generated by CRICDAIRY</p></div>`;
 }
 function printMatchReport(){
  const m=activeMatch();if(!m)return;
@@ -1193,10 +1306,21 @@ function createMatchPdfBlob(m){
  const title=m.title||'CRICDAIRY Match';
  const teams=(m.teams||[]).map(matchTeamName);
  const stage=seriesName(m.seriesId)||modeLabel(m.mode)||m.format||'Match';
- const lines=[title,stage,teams.join(' vs '),''];
+ const metadata=[m.format,modeLabel(m.mode),m.date,m.venue].filter(Boolean).join(' • ');
+ const lines=[title,stage,teams.join(' vs '),metadata];
+ if(m.toss)lines.push(`Toss: ${matchTeamName(m.toss.winner)} won and chose to ${m.toss.decision==='bat'?'bat':'bowl'}`);
+ lines.push('');
  if(m.status==='completed'){
   lines.push(`MATCH RESULT: ${m.result||'Match completed'}`,'');
  }
+ (m.teams||[]).forEach(teamId=>{
+  const details=matchTeamPresentation(m,teamId);
+  lines.push(`${matchTeamName(teamId)} — Playing XI (${details.lineup.length}/${details.target})`);
+  lines.push(`Captain: ${details.captain?playerName(details.captain):'Not selected'} • Wicketkeeper: ${details.wicketkeeper?playerName(details.wicketkeeper):'Not selected'}`);
+  lines.push(`Players: ${details.lineup.map(id=>`${playerName(id)}${id===details.captain?' (C)':''}${id===details.wicketkeeper?' (WK)':''}`).join(', ')||'No players selected'}`);
+  if(details.fielders.some(id=>!details.lineup.includes(id)))lines.push(`Fielding substitutes: ${details.fielders.filter(id=>!details.lineup.includes(id)).map(playerName).join(', ')}`);
+ });
+ lines.push('');
  (m.innings||[]).forEach((inn,index)=>{
   lines.push(`${matchTeamName(inn.batting)} ${Number(inn.runs)||0}-${Number(inn.wickets)||0} in ${Math.floor((Number(inn.legal)||0)/6)}.${(Number(inn.legal)||0)%6} Overs`);
   lines.push('');
@@ -1218,7 +1342,13 @@ function createMatchPdfBlob(m){
     lines.push(`${playerName(id).padEnd(24,' ')}${figures.overs.padStart(6,' ')}${String(Number(stats.maidens)||0).padStart(5,' ')}${String(Number(stats.runs)||0).padStart(6,' ')}${String(Number(stats.wickets)||0).padStart(6,' ')}${figures.average.padStart(7,' ')}${figures.economy.padStart(7,' ')}${figures.strike.padStart(8,' ')}`);
    });
   }
+  lines.push(`Extras: ${Object.entries(inn.extras||{}).map(([name,value])=>`${name} ${Number(value)||0}`).join(', ')||'none'}`);
+  lines.push(`Fall of wickets: ${(inn.fow||[]).map(item=>`${item.w}-${item.r} (${item.overs}), ${playerName(item.player)}`).join('; ')||'none'}`);
   lines.push('');
+ });
+ (m.teams||[]).forEach(teamId=>{
+  lines.push(`${matchTeamName(teamId)} — Team player performance`);
+  lines.push(...matchTeamPerformanceLines(m,teamId),'');
  });
  (m.innings||[]).forEach((inn,index)=>{
   const overs=inningsOverGroups(inn);

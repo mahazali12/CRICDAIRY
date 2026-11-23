@@ -35,6 +35,20 @@
 .summary-scores{display:flex;flex-wrap:wrap;gap:10px}
 .summary-score{display:flex;align-items:center;gap:12px;padding:10px 13px}
 .summary-score span{font-size:19px;font-weight:800}.summary-score small{color:var(--muted)}
+.match-performance{padding:14px;background:var(--panel2);border:1px solid var(--line);border-radius:12px}
+.match-performance h3{margin:0 0 10px}
+.match-performance-tabs{display:flex;gap:8px;margin-bottom:12px}
+.match-performance-tabs button{flex:1}
+.match-performance-tabs button.active{border-color:var(--green);color:var(--green);background:#173323}
+.team-performance-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.team-performance-player{min-width:0;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:9px}
+.team-performance-player header{position:static;height:auto;padding:0;border:0;background:none;display:flex;align-items:center;gap:6px;backdrop-filter:none}
+.team-performance-player header b{margin-right:auto;overflow-wrap:anywhere}
+.team-performance-player header small{padding:2px 6px;border-radius:8px;background:#1c3425;color:var(--green);font-size:9px}
+.team-performance-player p{margin:6px 0 0;color:var(--muted);font-size:11px;line-height:1.45}
+.playing-role-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.playing-role-fields label{min-width:0}
+@media(max-width:650px){.team-performance-list{grid-template-columns:1fr}}
 .series-card{margin-top:12px}.series-card .section-head{margin:0 0 10px}.series-card .section-head b,.series-card .section-head small{display:block}
 .series-record{font-weight:700;color:var(--green);text-align:right}
 .series-match{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
@@ -220,7 +234,7 @@
 .profile-fallback{display:grid;place-items:center;width:100%;height:100%;font-size:22px;font-weight:800;color:#dfffea}
 .player-stats-panel{margin-top:18px}.stats-actions{display:flex;align-items:center;gap:8px;min-width:min(440px,55%)}.stats-actions input{flex:1}.stats-actions select{width:150px}.player-stats-panel td small{color:var(--muted)}
 .player-match-performance{margin-top:8px;padding-top:5px;border-top:1px solid var(--line)}.player-match-performance p{margin:5px 0;color:var(--muted);font-size:12px;line-height:1.5}.player-of-match label{max-width:420px}
-.report-document{font-family:Arial,sans-serif;color:#111;background:#fff}.report-document h1{font-size:24px;margin:12px 0 4px}.report-document h2{font-size:17px;margin:14px 0 5px}.report-document h3{font-size:13px;margin:14px 0 6px}.report-document p{font-size:11px;line-height:1.5}.report-teams{margin-top:0!important}.report-innings{margin-top:22px}.report-innings-total{font-weight:700;font-size:15px!important;margin:4px 0 10px}.report-extras{font-size:10px!important}.report-ball-history p{margin:3px 0}.report-award{margin-top:22px;padding-top:10px;border-top:1px solid #999}.report-footer{margin-top:24px;border-top:1px solid #bbb;padding-top:7px}
+.report-document{font-family:Arial,sans-serif;color:#111;background:#fff}.report-document h1{font-size:24px;margin:12px 0 4px}.report-document h2{font-size:17px;margin:14px 0 5px}.report-document h3{font-size:13px;margin:14px 0 6px}.report-document p{font-size:11px;line-height:1.5}.report-teams{margin-top:0!important}.report-innings{margin-top:22px}.report-innings-total{font-weight:700;font-size:15px!important;margin:4px 0 10px}.report-extras{font-size:10px!important}.report-ball-history p{margin:3px 0}.report-award{margin-top:22px;padding-top:10px;border-top:1px solid #999}.report-team-performance{margin:16px 0;padding-top:8px;border-top:1px solid #999}.report-player-performance{margin:8px 0;padding:5px 0;border-bottom:1px dotted #bbb}.report-player-performance p{margin:3px 0}.report-footer{margin-top:24px;border-top:1px solid #bbb;padding-top:7px}
 .report-stage{text-align:center;font-size:18px!important;color:#222;margin:8px 0!important}.compact-summary-innings{margin:14px 0}.compact-summary-innings h2{font-size:16px;margin:8px 0}.summary-batting,.summary-bowling{width:100%;overflow-x:auto;margin:7px 0 12px;border-top:1px solid #777}.summary-batting-row{display:grid;grid-template-columns:minmax(150px,1.7fr) repeat(5,44px) minmax(120px,1.3fr);align-items:center;gap:5px;border-bottom:1px dotted #bbb;padding:4px 0;font-size:12px}.summary-batting-row span{min-width:0}.summary-batting-row b{text-align:right}.summary-batting-row small{text-align:left;color:#333}.summary-batting-head{font-weight:700;border-bottom:1px solid #777}.summary-bowling-row{display:grid;grid-template-columns:minmax(150px,1.7fr) repeat(7,44px);align-items:center;gap:5px;border-bottom:1px dotted #bbb;padding:4px 0;font-size:12px}.summary-bowling-row span{min-width:0}.summary-bowling-row b{text-align:right}.summary-bowling-head{font-weight:700;border-bottom:1px solid #777}
 @media(max-width:650px){
  #fullMatchReport .summary-batting-row,#fullMatchReport .summary-bowling-row{min-width:620px}
