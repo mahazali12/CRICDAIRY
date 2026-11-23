@@ -189,7 +189,7 @@ function setup(){
  $('matchSeries').onchange=()=>{fillTeamSelects();updateMatchModeInfo();renderPlayingPlayerSelectors()};
  $('playerTeam').onchange=renderTeams;
  $('teamCaptainSelect').onchange=()=>setTeamCaptain($('playerTeam').value,$('teamCaptainSelect').value);
- $('undoBtn').onclick=undo;$('swapBtn').onclick=()=>{const m=activeMatch();if(m&&m.non){[m.striker,m.non]=[m.non,m.striker];save()}};
+ $('undoBtn').onclick=undo;$('swapBtn').onclick=()=>{const m=activeMatch();if(!m||m.status!=='live'||!m.non)return;[m.striker,m.non]=[m.non,m.striker];save();renderScorer()};
  $('endInnings').onclick=endInnings;$('startNextInnings').onclick=startNextInnings;$('finishMatch').onclick=finishMatch;$('backLive').onclick=()=>page('live');$('printScore').textContent='Print / Save PDF';$('printScore').onclick=printMatchReport;
  $('shareMatch').onclick=shareMatch;
  if($('reportShare'))$('reportShare').onclick=()=>{const id=$('reportMatch').value;if(id){currentId=id;shareMatch()}else toast('Choose a match to share')};
@@ -316,11 +316,11 @@ function showMatchSetupStep(step){
  $('tossSetupStep').classList.toggle('hidden',!toss);
  $('teamBoxA').classList.toggle('hidden',!teamASetup);
  $('teamBoxB').classList.toggle('hidden',!teamBSetup);
- const stepCopy=['Match details','Team A Playing XI','Team B Playing XI','Toss'];
+ const stepCopy=['Match details','First team Playing XI','Second team Playing XI','Toss'];
  $('matchSetupProgress').textContent=`Step ${matchSetupStep} of 4 — ${stepCopy[matchSetupStep-1]}`;
- $('playingPlayersHeading').textContent=teamASetup?`${team($('teamA').value)?.name||'Team A'} Playing XI`:teamBSetup?`${team($('teamB').value)?.name||'Team B'} Playing XI`:'🏏 Select Playing XI';
- $('confirmPlayers').textContent=teamASetup?'Confirm Team A XI — Next':'Confirm Team B XI — Next: Toss';
- $('backPlayingStep').textContent=teamASetup?'Back: Match Details':'Back: Team A XI';
+ $('playingPlayersHeading').textContent=teamASetup?`${team($('teamA').value)?.name||'Team'} Playing XI`:teamBSetup?`${team($('teamB').value)?.name||'Team'} Playing XI`:'🏏 Select Playing XI';
+ $('confirmPlayers').textContent=teamASetup?'Confirm XI — Next':'Confirm XI — Next: Toss';
+ $('backPlayingStep').textContent=teamASetup?'Back: Match Details':'Back: First team XI';
  if(teamASetup||teamBSetup){const key=teamASetup?'A':'B';$('selectionMessage').textContent=`Select up to ${$('count'+key).value} players; ${selectedPlayingIds(key).length}/${$('count'+key).value} selected. Any remaining players can be added during the match.`}
  $('matchModeHint').textContent=details?'Enter match details and choose both teams to begin setup.':teamASetup||teamBSetup?'Select up to the chosen player count now. You can add the remaining players during the match.':'Select the toss winner and batting decision, then start the match.';
 }
@@ -342,8 +342,8 @@ function renderPlayingPlayerSelectors(){
  const countA=Math.min(15,Math.max(1,Number(saved?.countA)||defaultCountA));
  const countB=Math.min(15,Math.max(1,Number(saved?.countB)||defaultCountB));
  $('countA').value=countA;$('countB').value=countB;
- $('playingTeamAName').textContent=team(setup.a)?.name||'Team A';
- $('playingTeamBName').textContent=team(setup.b)?.name||'Team B';
+ $('playingTeamAName').textContent=team(setup.a)?.name||'Team';
+ $('playingTeamBName').textContent=team(setup.b)?.name||'Team';
  const selectedA=Array.isArray(saved?.playersA)?saved.playersA:rosterA.slice(0,countA).map(p=>p.id);
  const selectedB=Array.isArray(saved?.playersB)?saved.playersB:rosterB.slice(0,countB).map(p=>p.id);
  $('playersA').innerHTML=rosterA.length?rosterA.map(p=>`<label class="player-option"><input type="checkbox" class="select-A" value="${esc(p.id)}" ${selectedA.includes(p.id)?'checked':''}>${esc(p.name)}${team(setup.a)?.captainId===p.id?' <small class="captain-badge">C</small>':''}${p.role==='Wicketkeeper'?' <small class="wk-badge">WK</small>':''}</label>`).join(''):'<p class="muted">Add players to this team first.</p>';
@@ -414,16 +414,16 @@ function savePlayingPlayers(){
  state.playingDraft=draft;
  state.playingSelection=null;
  if(teamKey==='A'){
-  $('selectionMessage').textContent='Team A Playing XI confirmed.';
+  $('selectionMessage').textContent='First team Playing XI confirmed.';
   showMatchSetupStep(3);
  }else{
   state.playingSelection={...draft,playersA:[...draft.playersA],playersB:[...draft.playersB]};
-  $('selectionMessage').textContent='Team B Playing XI confirmed.';
+  $('selectionMessage').textContent='Second team Playing XI confirmed.';
   showMatchSetupStep(4);
  }
  const revision=++saveRevision;$('saveStatus').textContent='Saving…';
  Store.save(state).then(ok=>{if(revision===saveRevision)$('saveStatus').textContent=ok?'Saved on this device':'Save failed — export a backup'});
- toast(teamKey==='A'?'Team A XI confirmed':'Team B XI confirmed');
+ toast(teamKey==='A'?'First team XI confirmed':'Second team XI confirmed');
 }
 function matchLineup(m,teamId){
  if(Array.isArray(m.lineups?.[teamId]))return [...m.lineups[teamId]];
@@ -453,7 +453,7 @@ function renderLiveMatchPerformance(m){
  if(matchPerformanceMatchId!==m.id){matchPerformanceMatchId=m.id;matchPerformanceTeamId=null}
  const selectedTeam=m.teams.includes(matchPerformanceTeamId)?matchPerformanceTeamId:null;
  $('liveMatchPerformanceTabs').innerHTML=m.teams.map(teamId=>`<button type="button" class="ghost ${teamId===selectedTeam?'active':''}" role="tab" aria-selected="${teamId===selectedTeam}" data-live-match-performance-team="${esc(teamId)}">${esc(matchTeamName(teamId))}</button>`).join('');
- $('liveMatchPerformanceContent').innerHTML=selectedTeam?renderMatchTeamPerformance(m,selectedTeam):'<p class="muted">Choose Team A or Team B to view its player performance.</p>';
+ $('liveMatchPerformanceContent').innerHTML=selectedTeam?renderMatchTeamPerformance(m,selectedTeam):'<p class="muted">Choose a team to view its player performance.</p>';
  document.querySelectorAll('[data-live-match-performance-team]').forEach(button=>button.onclick=()=>{
   matchPerformanceTeamId=matchPerformanceTeamId===button.dataset.liveMatchPerformanceTeam?null:button.dataset.liveMatchPerformanceTeam;
   renderLiveMatchPerformance(m);renderMatchSummary(m);
@@ -1176,7 +1176,7 @@ function renderMatchSummary(m){
  const innings=(m.innings||[]).map((inn,index)=>`<div class="summary-score"><b>${inningsOrdinal(index)} Innings — ${esc(matchTeamName(inn.batting))}</b><span>${inn.runs}/${inn.wickets}</span><small>${Math.floor(inn.legal/6)}.${inn.legal%6} overs</small></div>`).join('');
  if(matchPerformanceMatchId!==m.id){matchPerformanceMatchId=m.id;matchPerformanceTeamId=null}
  const selectedTeam=m.teams.includes(matchPerformanceTeamId)?matchPerformanceTeamId:null;
- const performanceContent=selectedTeam?renderMatchTeamPerformance(m,selectedTeam):'<p class="muted">Choose Team A or Team B to view its player performance.</p>';
+ const performanceContent=selectedTeam?renderMatchTeamPerformance(m,selectedTeam):'<p class="muted">Choose a team to view its player performance.</p>';
  $('matchSummary').innerHTML=`<div class="summary-result"><b>${esc(m.status==='completed'?m.result||'Result pending':'Match in progress')}</b><span>${esc(m.title)}</span>${seriesName(m.seriesId)?`<small>Series: ${esc(seriesName(m.seriesId))}</small>`:''}</div><div class="summary-scores">${innings}</div><section class="match-performance"><h3>Team player performance</h3><div class="match-performance-tabs" role="tablist">${m.teams.map(teamId=>`<button type="button" class="ghost ${teamId===selectedTeam?'active':''}" role="tab" aria-selected="${teamId===selectedTeam}" data-match-performance-team="${esc(teamId)}">${esc(matchTeamName(teamId))}</button>`).join('')}</div><div class="match-performance-content">${performanceContent}</div></section>`;
  document.querySelectorAll('[data-match-performance-team]').forEach(button=>button.onclick=()=>{matchPerformanceTeamId=matchPerformanceTeamId===button.dataset.matchPerformanceTeam?null:button.dataset.matchPerformanceTeam;renderMatchSummary(m)});
  renderCompletedScorecard(m);
@@ -1496,7 +1496,7 @@ function matchCard(m,showManagement=false){
  const teamOptions=state.teams.map(item=>`<option value="${esc(item.id)}" ${m.teams[0]===item.id?'selected':''}>${esc(item.name)}</option>`).join('');
  const teamOptionsB=state.teams.map(item=>`<option value="${esc(item.id)}" ${m.teams[1]===item.id?'selected':''}>${esc(item.name)}</option>`).join('');
  const seriesOptions=state.tournaments.map(series=>`<option value="${esc(series.id)}" ${m.seriesId===series.id?'selected':''}>${esc(series.name)}</option>`).join('');
- const editMarkup=editMode?`<div class="match-edit-form"><div class="match-edit-grid"><label>Match title (optional)<input id="editMatchTitle-${esc(m.id)}" value="${esc(m.title)}" maxlength="100"></label><label>Venue (optional)<input id="editMatchVenue-${esc(m.id)}" value="${esc(m.venue||'')}" maxlength="100"></label><label>Team A<select id="editMatchTeamA-${esc(m.id)}">${teamOptions}</select></label><label>Team B<select id="editMatchTeamB-${esc(m.id)}">${teamOptionsB}</select></label><label>Status<select id="editMatchStatus-${esc(m.id)}"><option value="live" ${m.status==='live'?'selected':''}>Live</option><option value="completed" ${m.status==='completed'?'selected':''}>Completed</option></select></label><label>Series<select id="editMatchSeries-${esc(m.id)}"><option value="">No series</option>${seriesOptions}</select></label><label>Match date<input id="editMatchDate-${esc(m.id)}" type="date" value="${esc(m.date||'')}"></label><label>Player of the Match<select id="editMatchPOTM-${esc(m.id)}"><option value="">No player selected</option>${matchParticipantIds(m).map(id=>`<option value="${esc(id)}" ${m.playerOfTheMatch===id?'selected':''}>${esc(playerName(id))}</option>`).join('')}</select></label></div><div class="match-edit-actions"><div class="actions"><button class="primary" data-save-match="${esc(m.id)}">Save changes</button><button class="ghost" data-cancel-match="${esc(m.id)}">Cancel</button></div><button class="danger ghost" data-delete-match="${esc(m.id)}">Delete match</button></div></div>`:'';
+ const editMarkup=editMode?`<div class="match-edit-form"><div class="match-edit-grid"><label>Match title (optional)<input id="editMatchTitle-${esc(m.id)}" value="${esc(m.title)}" maxlength="100"></label><label>Venue (optional)<input id="editMatchVenue-${esc(m.id)}" value="${esc(m.venue||'')}" maxlength="100"></label><label>Team<select id="editMatchTeamA-${esc(m.id)}">${teamOptions}</select></label><label>Team<select id="editMatchTeamB-${esc(m.id)}">${teamOptionsB}</select></label><label>Status<select id="editMatchStatus-${esc(m.id)}"><option value="live" ${m.status==='live'?'selected':''}>Live</option><option value="completed" ${m.status==='completed'?'selected':''}>Completed</option></select></label><label>Series<select id="editMatchSeries-${esc(m.id)}"><option value="">No series</option>${seriesOptions}</select></label><label>Match date<input id="editMatchDate-${esc(m.id)}" type="date" value="${esc(m.date||'')}"></label><label>Player of the Match<select id="editMatchPOTM-${esc(m.id)}"><option value="">No player selected</option>${matchParticipantIds(m).map(id=>`<option value="${esc(id)}" ${m.playerOfTheMatch===id?'selected':''}>${esc(playerName(id))}</option>`).join('')}</select></label></div><div class="match-edit-actions"><div class="actions"><button class="primary" data-save-match="${esc(m.id)}">Save changes</button><button class="ghost" data-cancel-match="${esc(m.id)}">Cancel</button></div><button class="danger ghost" data-delete-match="${esc(m.id)}">Delete match</button></div></div>`:'';
  return `<div class="match-card"><div class="match-card-info"><b>${esc(m.title)}</b><small>${esc(team(m.teams[0])?.name||'')} vs ${esc(team(m.teams[1])?.name||'')} • ${esc(m.format)} • ${esc(m.status)}${seriesName(m.seriesId)?' • '+esc(seriesName(m.seriesId)):''}</small><small>${m.innings.map((i,index)=>`${index===0?'1st':'2nd'} Innings — ${esc(team(i.batting)?.name||'')}: ${i.runs}/${i.wickets}`).join(' | ')}${m.status==='completed'&&m.result?' • '+esc(m.result):''}</small></div><div class="match-actions"><button data-open="${esc(m.id)}" class="ghost">${m.status==='live'?'Open / Resume':'Summary'}</button>${m.status==='completed'?`<button data-share="${esc(m.id)}" class="ghost">Share PDF</button>`:''}</div>${showManagement?`<div class="match-management-row"><button data-edit-match="${esc(m.id)}" class="ghost">${editMode?'Close edit':'Edit match'}</button></div>`:''}${showManagement?editMarkup:''}</div>`;
 }
 function seriesName(id){return state.tournaments.find(s=>s.id===id)?.name||''}
@@ -1931,7 +1931,7 @@ function fillReportSelect(){
 }
 function exportJson(){const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});download(blob,'cricdairy-backup-'+new Date().toISOString().slice(0,10)+'.json');toast('Backup downloaded')}
 function restoreJson(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d?.teams)||!Array.isArray(d?.matches)||!Array.isArray(d?.players))throw Error();if(!confirm('Replace current local data with this backup?'))return;state=normalizeState(d);save();renderAll();toast('Backup restored')}catch(err){toast('Invalid backup file')}};r.readAsText(f);e.target.value=''}
-function exportCsv(){const rows=[['Match','Team A','Team B','Format','Status','Innings 1','Innings 2','Result'],...state.matches.map(m=>[m.title,team(m.teams[0])?.name,team(m.teams[1])?.name,m.format,m.status,`${m.innings[0]?.runs}/${m.innings[0]?.wickets}`,`${m.innings[1]?.runs??''}/${m.innings[1]?.wickets??''}`,m.result||''])];const csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');download(new Blob(['\ufeff'+csv],{type:'text/csv'}),'cricdairy-matches.csv')}
+function exportCsv(){const rows=[['Match','First team','Second team','Format','Status','Innings 1','Innings 2','Result'],...state.matches.map(m=>[m.title,team(m.teams[0])?.name,team(m.teams[1])?.name,m.format,m.status,`${m.innings[0]?.runs}/${m.innings[0]?.wickets}`,`${m.innings[1]?.runs??''}/${m.innings[1]?.wickets??''}`,m.result||''])];const csv=rows.map(r=>r.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(',')).join('\n');download(new Blob(['\ufeff'+csv],{type:'text/csv'}),'cricdairy-matches.csv')}
 function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href)}
 function demo(){let a=state.teams.find(t=>t.name==='Green XI'),b=state.teams.find(t=>t.name==='City Stars');if(!a){a={id:uid(),name:'Green XI'};state.teams.push(a)}if(!b){b={id:uid(),name:'City Stars'};state.teams.push(b)}for(let i=1;i<=11;i++){if(!state.players.some(p=>p.teamId===a.id&&p.name===`Green Player ${i}`))state.players.push({id:uid(),name:`Green Player ${i}`,teamId:a.id,role:i>7?'Bowler':'Batter'}) ;if(!state.players.some(p=>p.teamId===b.id&&p.name===`City Player ${i}`))state.players.push({id:uid(),name:`City Player ${i}`,teamId:b.id,role:i>7?'Bowler':'Batter'})}const m={id:uid(),title:'CRICDAIRY Demo Match',format:'T10',overs:10,venue:'Demo Ground',date:new Date().toISOString().slice(0,10),teams:[a.id,b.id],toss:{winner:a.id,decision:'bat'},innings:[newInnings(a.id,b.id)],current:0,status:'live',created:Date.now()};state.matches.unshift(m);currentId=m.id;save();page('scorer');toast('Demo match ready')}
 init();
