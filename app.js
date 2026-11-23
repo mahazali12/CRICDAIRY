@@ -265,12 +265,8 @@ function fillReserveSelect(teamKey,lineupIds,selected=''){
  select.value=options.some(player=>player.id===selected)?selected:'';
 }
 function setPlayingCountPreset(teamKey,count){
- const mode=$('matchMode').value;
- const teamId=$(`team${teamKey}`).value;
- const squadSize=playersFor(teamId).length;
- const max=Math.min(15,squadSize);
- if(!max)return toast('Add players to this team first');
- if(count>max){toast(`${team(teamId)?.name||'This team'} has ${squadSize} available player${squadSize===1?'':'s'}; choose up to ${max}`);count=max}
+ const max=15;
+ if(count>max){toast(`Choose up to ${max} players`);count=max}
  const input=$(`count${teamKey}`);input.value=count;
  updatePlayingCount(teamKey);
 }
@@ -291,7 +287,7 @@ function showMatchSetupStep(step){
  $('confirmPlayers').textContent=teamASetup?'Confirm Team A XI — Next':'Confirm Team B XI — Next: Toss';
  $('backPlayingStep').textContent=teamASetup?'Back: Match Details':'Back: Team A XI';
  if(teamASetup||teamBSetup)$('selectionMessage').textContent=`Select exactly ${$('count'+(teamASetup?'A':'B')).value} players for Team ${teamASetup?'A':'B'}, then confirm.`;
- $('matchModeHint').textContent=details?'Enter match details and choose both teams to begin setup.':teamASetup||teamBSetup?'Select the player count and exactly that many players, then confirm to continue.':'Select the toss winner and batting decision, then start the match.';
+ $('matchModeHint').textContent=details?'Enter match details and choose both teams to begin setup.':teamASetup||teamBSetup?'Select up to the chosen player count now. You can add the remaining players during the match.':'Select the toss winner and batting decision, then start the match.';
 }
 function nextMatchDetails(){
  const {a,b}=setupTeams();
@@ -306,8 +302,8 @@ function renderPlayingPlayerSelectors(){
  const matchesSetup=value=>value&&value.teamA===setup.a&&value.teamB===setup.b&&value.mode===setup.mode;
  const saved=matchesSetup(draft)?draft:matchesSetup(confirmed)?confirmed:null;
  const rosterA=playersFor(setup.a),rosterB=playersFor(setup.b);
- const defaultCountA=setup.mode==='standard'?Math.min(11,rosterA.length||1):Math.min(11,rosterA.length||1);
- const defaultCountB=setup.mode==='standard'?Math.min(11,rosterB.length||1):Math.min(11,rosterB.length||1);
+ const defaultCountA=setup.mode==='standard'?11:Math.min(11,rosterA.length||1);
+ const defaultCountB=setup.mode==='standard'?11:Math.min(11,rosterB.length||1);
  const countA=Math.min(15,Math.max(1,Number(saved?.countA)||defaultCountA));
  const countB=Math.min(15,Math.max(1,Number(saved?.countB)||defaultCountB));
  $('countA').value=countA;$('countB').value=countB;
@@ -322,7 +318,7 @@ function renderPlayingPlayerSelectors(){
  fillReserveSelect('B',selectedB,saved?.reserveB);
  $('reserveA').onchange=persistPlayingDraft;$('reserveB').onchange=persistPlayingDraft;
  updatePlayingCounts();
- $('selectionMessage').textContent=matchesSetup(confirmed)?'Playing players confirmed.':`Select exactly ${$('count'+(matchSetupStep===3?'B':'A')).value} players for the active team, then confirm.`;
+ $('selectionMessage').textContent=matchesSetup(confirmed)?'Playing players confirmed.':`Select up to ${$('count'+(matchSetupStep===3?'B':'A')).value} players for the active team. Remaining spots can be filled during the match.`;
 }
 function addPlayingPlayer(teamKey){
  const teamId=$(`team${teamKey}`).value,name=$(`newPlayingPlayer${teamKey}`).value.trim();
@@ -342,8 +338,8 @@ function addPlayingPlayer(teamKey){
 }
 function updatePlayingCount(teamKey){
  const input=$(`count${teamKey}`);
- const count=Number(input.value),roster=playersFor($(`team${teamKey}`).value);
- if(!Number.isInteger(count)||count<1||count>15||count>roster.length){toast(`Choose 1 to ${Math.min(15,roster.length)} players for Team ${teamKey}`);input.value=Math.max(1,Math.min(15,roster.length||1));return}
+ const count=Number(input.value);
+ if(!Number.isInteger(count)||count<1||count>15){toast('Choose between 1 and 15 players');input.value=Math.max(1,Math.min(15,Number(input.value)||1));return}
  if(teamKey==='A'||teamKey==='B'){
   const boxes=Array.from(document.querySelectorAll(`.select-${teamKey}`));
   const checked=boxes.filter(box=>box.checked);
@@ -364,10 +360,10 @@ function persistPlayingDraft(){
 function savePlayingPlayers(){
  if(matchSetupStep!==2&&matchSetupStep!==3)return;
  const setup=setupTeams(),teamKey=matchSetupStep===2?'A':'B',teamId=teamKey==='A'?setup.a:setup.b;
- const count=Number($(`count${teamKey}`).value),players=selectedPlayingIds(teamKey),available=playersFor(teamId).length;
+ const count=Number($(`count${teamKey}`).value),players=selectedPlayingIds(teamKey);
  if(!setup.a||!setup.b||setup.a===setup.b)return toast('Select two different teams first');
- if(!Number.isInteger(count)||count<1||count>15||count>available)return toast(`Team ${teamKey} count must be between 1 and its available squad size (maximum 15).`);
- if(players.length!==count)return toast(`Select exactly ${count} players for Team ${teamKey}.`);
+ if(!Number.isInteger(count)||count<1||count>15)return toast(`Choose a Team ${teamKey} player count between 1 and 15.`);
+ if(players.length>count)return toast(`Select no more than ${count} players for Team ${teamKey}.`);
  const matchesSetup=value=>value&&value.teamA===setup.a&&value.teamB===setup.b&&value.mode===setup.mode;
  const draft=matchesSetup(state.playingDraft)?{...state.playingDraft}:{teamA:setup.a,teamB:setup.b,mode:setup.mode,countA:Number($('countA').value),countB:Number($('countB').value),playersA:selectedPlayingIds('A'),playersB:selectedPlayingIds('B'),reserveA:$('reserveA').value||'',reserveB:$('reserveB').value||''};
  draft[`count${teamKey}`]=count;
@@ -567,7 +563,7 @@ function startMatch(){
  const selectedB=Array.isArray(selection.playersB)?selection.playersB.filter(id=>availableB.some(p=>p.id===id)):[];
  const countA=Math.max(1,Math.min(15,Number(selection.countA)||1));
  const countB=Math.max(1,Math.min(15,Number(selection.countB)||1));
- if(selectedA.length!==countA||selectedB.length!==countB)return toast('The confirmed Playing XI has changed. Please select both teams again.');
+ if(selectedA.length>countA||selectedB.length>countB)return toast('The confirmed Playing XI exceeds a team player count. Please review both teams.');
  const lineupA=[...new Set(selectedA)].slice(0,countA);
  const lineupB=[...new Set(selectedB)].slice(0,countB);
  const overs=matchFormat==='Test Match'?null:Number($('matchOvers').value);
