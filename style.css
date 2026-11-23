@@ -205,7 +205,10 @@
  .live-score-table th,.live-score-table td{padding:7px 8px;white-space:nowrap}
  .live-score-table th{background:#173723}
  .live-score-table .current-batter td:first-child{font-weight:800;color:var(--green)}
- #scorer>.player-strip{display:none}
+ #scorer>.player-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:8px 0}
+ #scorer>.player-strip .player-strip-card{min-width:0;padding:8px 6px;font-size:11px}
+ #scorer>.player-strip small,#scorer>.player-strip span{font-size:9px}
+ #scorer>.player-strip b{font-size:11px;line-height:1.2;overflow-wrap:anywhere}
  #scorer>.scoring-layout{display:block}
  #scorer>.scoring-layout>.panel:first-child{position:fixed;left:0;right:0;bottom:0;z-index:12;display:flex;flex-direction:column;gap:7px;max-height:43vh;overflow-y:auto;margin:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-radius:16px 16px 0 0}
  #scorer>.scoring-layout>.panel:first-child>h3{display:none}

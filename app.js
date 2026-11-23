@@ -906,6 +906,9 @@ function openManualPlayerSelection(slot){
  if(m.pendingOpeningSelection||m.pendingBatterSlot||m.pendingBowler)return toast('Complete the current player selection first');
  if(!['striker','non','bowler'].includes(slot))return;
  m.pendingManualPlayerSlot=slot;
+ if(slot==='striker')$('selectionStriker').value=m.striker||'';
+ if(slot==='non')$('selectionNon').value=m.non||'';
+ if(slot==='bowler')$('selectionBowler').value=m.bowler||'';
  renderScorer();
  const focusId=slot==='striker'?'selectionStriker':slot==='non'?'selectionNon':'selectionBowler';
  $(focusId).focus();
@@ -928,12 +931,13 @@ function renderNextPlayerPrompts(m,inn){
  const lineup=inn.lineup?.length?inn.lineup:playersFor(inn.batting).map(player=>player.id);
  const batters=lineup.map(id=>state.players.find(player=>player.id===id)).filter(player=>player&&!inn.batters[player.id]?.out);
  const selectedStriker=$('selectionStriker').value;
- const openingStriker=manualSlot&&batters.some(player=>player.id===m.striker)?m.striker:batters.some(player=>player.id===selectedStriker)?selectedStriker:batters.some(player=>player.id===m.striker)?m.striker:batters[0]?.id||'';
+ const openingStriker=batters.some(player=>player.id===selectedStriker)?selectedStriker:batters.some(player=>player.id===m.striker)?m.striker:batters[0]?.id||'';
  fillPlayerPick('selectionStriker',batters,openingStriker);
  $('selectionStriker').onchange=()=>renderNextPlayerPrompts(m,inn);
  const selectedNon=$('selectionNon').value;
- const openingNon=manualSlot&&batters.some(player=>player.id===m.non&&player.id!==openingStriker)?m.non:batters.some(player=>player.id===selectedNon&&player.id!==openingStriker)?selectedNon:batters.some(player=>player.id===m.non&&player.id!==openingStriker)?m.non:batters.find(player=>player.id!==openingStriker)?.id||'';
+ const openingNon=batters.some(player=>player.id===selectedNon&&player.id!==openingStriker)?selectedNon:batters.some(player=>player.id===m.non&&player.id!==openingStriker)?m.non:batters.find(player=>player.id!==openingStriker)?.id||'';
  fillPlayerPick('selectionNon',batters.filter(player=>player.id!==openingStriker),openingNon);
+ $('selectionNon').onchange=()=>renderNextPlayerPrompts(m,inn);
  $('selectionNonWrap').classList.toggle('hidden',batters.length<2||(!opening&&manualSlot!=='non'));
  const slot=m.pendingBatterSlot,otherBatter=slot==='striker'?m.non:m.striker;
  const incomingBatters=batters.filter(player=>player.id!==otherBatter);
@@ -941,8 +945,10 @@ function renderNextPlayerPrompts(m,inn){
  fillPlayerPick('selectionIncomingBatter',incomingBatters,incoming);
  const bowlers=playersFor(inn.bowling),alternates=bowlers.filter(player=>player.id!==m.previousOverBowler);
  const availableBowlers=bowlerPending&&alternates.length?alternates:bowlers;
- const nextBowler=manualSlot&&availableBowlers.some(player=>player.id===m.bowler)?m.bowler:availableBowlers.some(player=>player.id===$('selectionBowler').value)?$('selectionBowler').value:availableBowlers[0]?.id||'';
+ const selectedBowler=$('selectionBowler').value;
+ const nextBowler=availableBowlers.some(player=>player.id===selectedBowler)?selectedBowler:availableBowlers.some(player=>player.id===m.bowler)?m.bowler:availableBowlers[0]?.id||'';
  fillPlayerPick('selectionBowler',availableBowlers,nextBowler);
+ $('selectionBowler').onchange=()=>renderNextPlayerPrompts(m,inn);
  const needsTwoBatters=opening&&batters.length>1;
  const readyOpening=Boolean(openingStriker)&&(!needsTwoBatters||Boolean(openingNon))&&Boolean(nextBowler);
  const readyManual=manualSlot==='striker'?Boolean(openingStriker&&openingStriker!==m.non):manualSlot==='non'?Boolean(openingNon&&openingNon!==m.striker):manualSlot==='bowler'?Boolean(nextBowler):false;
