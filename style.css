@@ -136,9 +136,13 @@
 .match-player-panel summary b,.match-player-panel summary small{display:block}
 .match-player-panel summary small{margin-top:4px;color:var(--muted)}
 .match-player-content{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
+.match-player-content>#returnToPlayerSelection,.match-player-action-menu,.match-player-content>#matchPlayerActionHint,.match-player-section{grid-column:1/-1}
+.match-player-action-menu{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.match-player-action-menu button{min-width:0}
+.match-player-action-menu button.active{border-color:var(--green);color:var(--green);background:#173323}
 .match-player-section{min-width:0;padding:14px;background:var(--panel2);border-radius:11px}
 .match-player-section h3{margin-top:0}
-@media(max-width:650px){.score-hero{align-items:flex-start;flex-direction:column}.target-box{text-align:left;width:100%}.win-prediction{min-width:0;max-width:none}.match-player-content{grid-template-columns:1fr}}
+@media(max-width:650px){.score-hero{align-items:flex-start;flex-direction:column}.target-box{text-align:left;width:100%}.win-prediction{min-width:0;max-width:none}.match-player-content{grid-template-columns:1fr}.match-player-action-menu{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 #scorer.page.active{display:grid;grid-template-columns:minmax(120px,.7fr) minmax(0,1.3fr);gap:12px}
 #scorer>.section-head,#scorer>.innings-break,#scorer>.player-strip,#scorer>#nextPlayerPrompts,#scorer>#matchPlayerPanel,#scorer>.scoring-layout>.panel:last-child,#scorer>.panel:last-child{grid-column:1/-1}

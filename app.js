@@ -1,4 +1,4 @@
-let state, currentId=null, currentPlayerId=null, currentTeamId=null, scorecardMatchId=null, scorecardInningsIndex=0, undoStack=[], lang='en', saveRevision=0, pendingDelivery=null, installPromptEvent=null, swipeStart=null, editingTournamentId=null, editingMatchId=null, editingTeamPlayerId=null, matchSetupStep=1, matchPerformanceTeamId=null;
+let state, currentId=null, currentPlayerId=null, currentTeamId=null, scorecardMatchId=null, scorecardInningsIndex=0, undoStack=[], lang='en', saveRevision=0, pendingDelivery=null, installPromptEvent=null, swipeStart=null, editingTournamentId=null, editingMatchId=null, editingTeamPlayerId=null, matchSetupStep=1, matchPerformanceTeamId=null, matchPerformanceMatchId=null, activeMatchPlayerAction='', matchPlayerControlsMatchId=null;
 const $=id=>document.getElementById(id), uid=()=>Math.random().toString(36).slice(2,10);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(s){$('toast').textContent=s;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2300)}
@@ -163,7 +163,8 @@ function setup(){
   $('matchPlayerPanel').open=true;
   $('matchPlayerPanel').scrollIntoView({behavior:'smooth',block:'start'});
  };
- $('returnToPlayerSelection').onclick=()=>{ $('matchPlayerPanel').open=false;renderScorer() };
+ document.querySelectorAll('[data-match-player-action]').forEach(button=>button.onclick=()=>setMatchPlayerAction(button.dataset.matchPlayerAction));
+ $('returnToPlayerSelection').onclick=()=>{activeMatchPlayerAction='';$('matchPlayerPanel').open=false;renderScorer()};
  $('dismissal').onchange=()=>{$('fielder').value='';updateWicketFielderControls()};
  $('deliveryDismissal').onchange=()=>{$('deliveryFielder').value='';updateDeliveryOutControls()};
  $('recordDelivery').onclick=()=>recordPendingDelivery();
@@ -429,10 +430,28 @@ function matchLineup(m,teamId){
 function matchPlayerHasParticipated(m,playerId){
  return m.innings.some(inn=>Boolean(inn.batters?.[playerId]||inn.bowlers?.[playerId])||(inn.balls||[]).some(ball=>ball.batterId===playerId||ball.bowlerId===playerId||ball.fielderId===playerId));
 }
+function setMatchPlayerAction(action){
+ const actions=['add','substitute','wicketkeeper','edit'];
+ if(!actions.includes(action))return;
+ activeMatchPlayerAction=activeMatchPlayerAction===action?'':action;
+ $('matchPlayerPanel').open=true;
+ renderMatchPlayerControls(activeMatch());
+}
+function renderMatchPlayerActionState(){
+ document.querySelectorAll('[data-match-player-action]').forEach(button=>{
+  const active=button.dataset.matchPlayerAction===activeMatchPlayerAction;
+  button.classList.toggle('active',active);
+  button.setAttribute('aria-pressed',String(active));
+ });
+ document.querySelectorAll('[data-match-player-section]').forEach(section=>section.classList.toggle('hidden',section.dataset.matchPlayerSection!==activeMatchPlayerAction));
+ $('matchPlayerActionHint').classList.toggle('hidden',Boolean(activeMatchPlayerAction));
+}
 function renderMatchPlayerControls(m){
  const panel=$('matchPlayerPanel');
  panel.classList.toggle('hidden',!m||m.status!=='live');
  if(!m||m.status!=='live')return;
+ if(matchPlayerControlsMatchId!==m.id){matchPlayerControlsMatchId=m.id;activeMatchPlayerAction=''}
+ renderMatchPlayerActionState();
  $('returnToPlayerSelection').classList.toggle('hidden',!m.pendingOpeningSelection&&!m.pendingBowler&&!m.pendingBatterSlot);
  const teamSelect=$('matchPlayerTeam'),selectedTeam=teamSelect.value,selectedEdit=$('matchPlayerEditSelect').value;
  teamSelect.innerHTML=m.teams.map(id=>`<option value="${esc(id)}">${esc(team(id)?.name||'Team')}</option>`).join('');
@@ -1118,9 +1137,11 @@ function renderMatchTeamPerformance(m,teamId){
 }
 function renderMatchSummary(m){
  const innings=(m.innings||[]).map((inn,index)=>`<div class="summary-score"><b>${inningsOrdinal(index)} Innings — ${esc(matchTeamName(inn.batting))}</b><span>${inn.runs}/${inn.wickets}</span><small>${Math.floor(inn.legal/6)}.${inn.legal%6} overs</small></div>`).join('');
- const selectedTeam=m.teams.includes(matchPerformanceTeamId)?matchPerformanceTeamId:m.teams[0];
- $('matchSummary').innerHTML=`<div class="summary-result"><b>${esc(m.status==='completed'?m.result||'Result pending':'Match in progress')}</b><span>${esc(m.title)}</span>${seriesName(m.seriesId)?`<small>Series: ${esc(seriesName(m.seriesId))}</small>`:''}</div><div class="summary-scores">${innings}</div><section class="match-performance"><h3>Team player performance</h3><div class="match-performance-tabs" role="tablist">${m.teams.map(teamId=>`<button type="button" class="ghost ${teamId===selectedTeam?'active':''}" role="tab" aria-selected="${teamId===selectedTeam}" data-match-performance-team="${esc(teamId)}">${esc(matchTeamName(teamId))}</button>`).join('')}</div><div class="match-performance-content">${renderMatchTeamPerformance(m,selectedTeam)}</div></section>`;
- document.querySelectorAll('[data-match-performance-team]').forEach(button=>button.onclick=()=>{matchPerformanceTeamId=button.dataset.matchPerformanceTeam;renderMatchSummary(m)});
+ if(matchPerformanceMatchId!==m.id){matchPerformanceMatchId=m.id;matchPerformanceTeamId=null}
+ const selectedTeam=m.teams.includes(matchPerformanceTeamId)?matchPerformanceTeamId:null;
+ const performanceContent=selectedTeam?renderMatchTeamPerformance(m,selectedTeam):'<p class="muted">Choose Team A or Team B to view its player performance.</p>';
+ $('matchSummary').innerHTML=`<div class="summary-result"><b>${esc(m.status==='completed'?m.result||'Result pending':'Match in progress')}</b><span>${esc(m.title)}</span>${seriesName(m.seriesId)?`<small>Series: ${esc(seriesName(m.seriesId))}</small>`:''}</div><div class="summary-scores">${innings}</div><section class="match-performance"><h3>Team player performance</h3><div class="match-performance-tabs" role="tablist">${m.teams.map(teamId=>`<button type="button" class="ghost ${teamId===selectedTeam?'active':''}" role="tab" aria-selected="${teamId===selectedTeam}" data-match-performance-team="${esc(teamId)}">${esc(matchTeamName(teamId))}</button>`).join('')}</div><div class="match-performance-content">${performanceContent}</div></section>`;
+ document.querySelectorAll('[data-match-performance-team]').forEach(button=>button.onclick=()=>{matchPerformanceTeamId=matchPerformanceTeamId===button.dataset.matchPerformanceTeam?null:button.dataset.matchPerformanceTeam;renderMatchSummary(m)});
  renderCompletedScorecard(m);
  const potm=$('playerOfMatch'),player=m.playerOfTheMatch,candidates=matchParticipantIds(m).sort((a,b)=>playerName(a).localeCompare(playerName(b)));
  potm.classList.toggle('hidden',m.status!=='completed');
