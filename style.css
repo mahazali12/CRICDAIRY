@@ -128,8 +128,9 @@
 .match-outcome b{font-size:16px;color:var(--green)}
 .match-outcome small{color:#d5e8d9;font-size:12px}
 .win-prediction{min-width:250px;max-width:330px;margin-top:12px;padding-top:10px;border-top:1px solid #ffffff33;text-align:left}
-.win-prediction>b{display:block;margin:5px 0;color:var(--green)}
-.win-prediction>small:last-child{display:block;margin-top:5px;font-size:11px}
+.win-prediction .prediction-title{display:block;font-size:10px}
+.prediction-teams{display:flex;justify-content:space-between;gap:8px;margin:6px 0 4px;font-size:11px;font-weight:700}
+.prediction-teams small:last-child{text-align:right}
 .prediction-meter{display:flex;gap:3px;height:8px;overflow:hidden;border-radius:8px}
 .prediction-meter span{display:block;transition:flex-basis .2s ease}
 #winPredictionA{background:var(--green)}
@@ -176,6 +177,7 @@
 .player-selection-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .player-selection-actions button{width:100%}
 .wk-badge{display:inline-block;margin-left:6px;padding:2px 6px;border-radius:6px;background:#d2a83c;color:#241a00;font-size:10px;font-weight:800}
+.player-squad-number{flex:0 0 22px;color:var(--green);font-weight:800;text-align:right}
 @media(max-width:650px){
  body.scoring-screen #sidebar{display:none!important}
  body.scoring-screen #appHeader{position:static}
@@ -196,14 +198,10 @@
  #scorer>.score-hero>#targetBox #targetText{grid-column:1/-1;grid-row:2}
  #scorer>.score-hero>#targetBox #requiredRunRate{grid-column:1/-1;grid-row:3}
  #scorer>.score-hero>#targetBox .win-prediction{grid-column:1/-1;min-width:0;max-width:none;margin:5px 0 0;padding-top:5px}
- #scorer>.score-hero>#targetBox .win-prediction>small:first-child{font-size:9px}
- #scorer>.score-hero>#targetBox .win-prediction>b{font-size:11px}
- #scorer>.score-hero>#targetBox #winPredictionTeams{font-size:9px}
- #scorer>.score-hero>#targetBox .win-prediction{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:3px 8px;margin:4px 0 0;padding-top:4px}
- #scorer>.score-hero>#targetBox .win-prediction>small:first-child{grid-column:1;grid-row:1;font-size:8px}
- #scorer>.score-hero>#targetBox .win-prediction>b{grid-column:2;grid-row:1;margin:0;font-size:10px}
- #scorer>.score-hero>#targetBox .prediction-meter{grid-column:1/-1;height:4px}
- #scorer>.score-hero>#targetBox #winPredictionTeams{grid-column:1/-1;margin:0;text-align:right;font-size:8px}
+ #scorer>.score-hero>#targetBox .win-prediction{margin:4px 0 0;padding-top:4px}
+ #scorer>.score-hero>#targetBox .win-prediction .prediction-title{font-size:8px}
+ #scorer>.score-hero>#targetBox .prediction-teams{margin:3px 0;font-size:8px}
+ #scorer>.score-hero>#targetBox .prediction-meter{height:4px}
  #scorer>.score-hero>#liveScoringSummary{grid-column:1/-1;grid-row:4;margin:0}
  #scorer>.score-hero>.player-strip{grid-column:1/-1;grid-row:3;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0}
  #scorer>.score-hero>.player-strip .player-strip-card{min-width:0;padding:6px 5px;font-size:11px}
