@@ -48,6 +48,14 @@ function page(p,recordHistory=true){
  if(p==='teamStats')renderTeamStats();
  if(p==='teamProfile')renderTeamProfile();
 }
+function backFromCurrentScreen(){
+ if(!$('home').classList.contains('hidden'))return;
+ if(document.querySelector('.page.active')?.id==='newmatch'&&matchSetupStep>1){
+  showMatchSetupStep(matchSetupStep-1);
+  return;
+ }
+ page('home');
+}
 function activeMatch(){return state.matches.find(m=>m.id===currentId)}
 function team(id){return state.teams.find(t=>t.id===id)}
 function teamTypeLabel(item){return item?.type==='club'?'Club team':'Other team'}
@@ -116,10 +124,11 @@ function setup(){
   if(!swipeStart||!event.changedTouches.length)return;
   const dx=event.changedTouches[0].clientX-swipeStart.x,dy=event.changedTouches[0].clientY-swipeStart.y;
   swipeStart=null;
-  if($('home').classList.contains('hidden')&&dx>=90&&dx>Math.abs(dy)*1.4)page('home');
+  if($('home').classList.contains('hidden')&&dx>=90&&dx>Math.abs(dy)*1.4)backFromCurrentScreen();
  },{passive:true});
- document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('home').classList.contains('hidden'))page('home')});
+ document.addEventListener('keydown',event=>{if(event.key==='Escape'&&$('home').classList.contains('hidden'))backFromCurrentScreen()});
  $('addTeam').onclick=()=>{const name=$('newTeamName').value.trim();if(!name)return toast('Enter a team name');addTeam(name,$('newTeamType').value);$('newTeamName').value='';renderAll();toast('Team added')};
+ $('backNewMatch').onclick=()=>page('home');
  $('addQuickTeam').onclick=()=>{page('teams');$('newTeamName').focus();toast('Enter the team name, then select Add')};
  $('addPlayer').onclick=async()=>{const name=$('newPlayerName').value.trim(),teamId=$('playerTeam').value;if(!name||!teamId)return toast('Enter player name and team');if(playersFor(teamId).some(player=>player.name.trim().toLowerCase()===name.toLowerCase()))return toast('This player is already in the selected team or club');const f=$('playerPhoto').files[0];const photo=f&&f.type.startsWith('image/')?await resizeImage(f,320):'';state.players.push({id:uid(),name,teamId,role:$('playerRole').value,photo,stats:{runs:0,balls:0,wickets:0,matches:0}});$('newPlayerName').value='';$('playerPhoto').value='';save();renderAll();toast('Player added')};
  $('addPlayingPlayerA').onclick=()=>addPlayingPlayer('A');
