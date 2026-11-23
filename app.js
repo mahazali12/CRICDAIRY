@@ -35,6 +35,7 @@ function save(){
  return saving;
 }
 function page(p,recordHistory=true){
+ if(p!=='scorer'){const m=activeMatch();if(m&&m.pendingManualPlayerSlot)m.pendingManualPlayerSlot=''}
  if(recordHistory&&p==='home'&&history.state?.cricdairyApp&&history.state.screen!=='home')history.back();
  else if(recordHistory&&p!=='home')history.pushState({cricdairyApp:true,screen:p},'',location.href);
  document.querySelectorAll('.page').forEach(x=>x.classList.toggle('active',x.id===p));
@@ -106,7 +107,7 @@ function normalizeState(data){
    if(!Object.prototype.hasOwnProperty.call(captains,teamId))captains[teamId]=team(teamId)?.captainId&&lineup.includes(team(teamId).captainId)?team(teamId).captainId:'';
   });
   const playerCounts=Object.fromEntries(teams.map(teamId=>[teamId,Math.max(1,Number(m.playerCounts?.[teamId])||(m.mode==='custom'?lineups[teamId]?.length||1:11))]));
-  return {...m,teams,lineups,reserves,wicketkeepers,captains,fielders,offFielders,playerCounts,mode:m.mode==='custom'?'custom':'standard',seriesId:m.seriesId||'',innings,current:Number.isInteger(m.current)?m.current:0,inningsBreak:Boolean(m.inningsBreak),pendingOpeningSelection:Boolean(m.pendingOpeningSelection),pendingBowler:Boolean(m.pendingBowler),pendingBatterSlot:['striker','non'].includes(m.pendingBatterSlot)?m.pendingBatterSlot:''};
+  return {...m,teams,lineups,reserves,wicketkeepers,captains,fielders,offFielders,playerCounts,mode:m.mode==='custom'?'custom':'standard',seriesId:m.seriesId||'',innings,current:Number.isInteger(m.current)?m.current:0,inningsBreak:Boolean(m.inningsBreak),pendingOpeningSelection:Boolean(m.pendingOpeningSelection),pendingBowler:Boolean(m.pendingBowler),pendingBatterSlot:['striker','non'].includes(m.pendingBatterSlot)?m.pendingBatterSlot:'',pendingManualPlayerSlot:''};
  });
  return normalized;
 }
@@ -157,6 +158,8 @@ function setup(){
  $('wicketBtn').onclick=openWicketPanel;
  $('recordWicket').onclick=recordWicket;$('cancelWicket').onclick=closeWicketPanel;
  $('confirmPlayerSelection').onclick=confirmPlayerSelection;
+ $('cancelPlayerSelection').onclick=cancelManualPlayerSelection;
+ document.querySelectorAll('#scorer [data-player-slot]').forEach(button=>button.onclick=()=>openManualPlayerSelection(button.dataset.playerSlot));
  $('openSelectionPlayerManagement').onclick=()=>{
   $('nextPlayerPrompts').classList.add('hidden');
   $('returnToPlayerSelection').classList.remove('hidden');
@@ -678,7 +681,7 @@ function startMatch(){
   [a]:Object.prototype.hasOwnProperty.call(selection,'captainA')?(lineupA.includes(selection.captainA)?selection.captainA:''):team(a)?.captainId&&lineupA.includes(team(a).captainId)?team(a).captainId:'',
   [b]:Object.prototype.hasOwnProperty.call(selection,'captainB')?(lineupB.includes(selection.captainB)?selection.captainB:''):team(b)?.captainId&&lineupB.includes(team(b).captainId)?team(b).captainId:''
  };
- const m={id:uid(),title:$('matchTitle').value.trim()||`${team(a).name} vs ${team(b).name}`,format:matchFormat,mode,overs,venue:$('matchVenue').value.trim(),date:$('matchDate').value,teams:[a,b],lineups,reserves,fielders:{[a]:[],[b]:[]},offFielders:{[a]:[],[b]:[]},playerCounts:{[a]:countA,[b]:countB},wicketkeepers,captains,seriesId:$('matchSeries').value,toss:{winner,decision:$('tossDecision').value},innings:[first],current:0,status:'live',created:Date.now(),superOver:false,striker:firstLineup[0]||null,non:firstLineup[1]||null,bowler:null,pendingOpeningSelection:true,pendingBowler:false,pendingBatterSlot:''};
+ const m={id:uid(),title:$('matchTitle').value.trim()||`${team(a).name} vs ${team(b).name}`,format:matchFormat,mode,overs,venue:$('matchVenue').value.trim(),date:$('matchDate').value,teams:[a,b],lineups,reserves,fielders:{[a]:[],[b]:[]},offFielders:{[a]:[],[b]:[]},playerCounts:{[a]:countA,[b]:countB},wicketkeepers,captains,seriesId:$('matchSeries').value,toss:{winner,decision:$('tossDecision').value},innings:[first],current:0,status:'live',created:Date.now(),superOver:false,striker:firstLineup[0]||null,non:firstLineup[1]||null,bowler:null,pendingOpeningSelection:true,pendingBowler:false,pendingBatterSlot:'',pendingManualPlayerSlot:''};
  state.matches.unshift(m);currentId=m.id;undoStack=[];save();page('scorer');toast('Match started');
 }
 function newInnings(bat,bowl,lineup=[],mode='standard'){return {batting:bat,bowling:bowl,lineup:[...lineup],wicketLimit:mode==='standard'?Math.max(1,lineup.length-1):lineup.length,runs:0,wickets:0,legal:0,balls:[],batters:{},bowlers:{},extras:{wide:0,noball:0,bye:0,legbye:0,penalty:0},fow:[],partnership:0}}
@@ -814,7 +817,7 @@ function applyPlayerOfTheMatch(m){
  m.playerOfTheMatch=best?.id||null;
 }
 function completeMatchState(m){
- m.status='completed';m.inningsBreak=false;m.pendingOpeningSelection=false;m.pendingBowler=false;m.pendingBatterSlot='';m.previousOverBowler='';m.result=matchResult(m);applyPlayerOfTheMatch(m);closeDeliveryPanel();closeWicketPanel();
+ m.status='completed';m.inningsBreak=false;m.pendingOpeningSelection=false;m.pendingBowler=false;m.pendingBatterSlot='';m.pendingManualPlayerSlot='';m.previousOverBowler='';m.result=matchResult(m);applyPlayerOfTheMatch(m);closeDeliveryPanel();closeWicketPanel();
 }
 function undo(){const m=activeMatch();if(!m||!undoStack.length)return toast('Nothing to undo');const prev=JSON.parse(undoStack.pop());Object.assign(m,prev);save();renderScorer();toast('Last action undone')}
 async function endInnings(ask=true){
@@ -885,7 +888,7 @@ function renderLiveScoringSummary(m,inn){
  const batterIds=[m.striker,m.non,...Object.keys(inn.batters||{})].filter((id,index,all)=>id&&all.indexOf(id)===index);
  const battingRows=batterIds.map(id=>{
   const stats=inn.batters[id]||{runs:0,balls:0,fours:0,sixes:0,out:false,dismissal:''},active=id===m.striker||id===m.non;
-  return `<tr${active?' class="current-batter"':''}><td>${esc(playerName(id))}${active?' *':''}</td><td>${stats.runs||0}</td><td>${stats.balls||0}</td><td>${stats.fours||0}</td><td>${stats.sixes||0}</td><td>${stats.balls?(stats.runs/stats.balls*100).toFixed(1):'0.0'}</td><td>${esc(dismissalDescription(inn,id,stats))}</td></tr>`;
+  return `<tr${active?' class="current-batter"':''}><td>${esc(playerName(id))}${id===m.striker?' *':''}</td><td>${stats.runs||0}</td><td>${stats.balls||0}</td><td>${stats.fours||0}</td><td>${stats.sixes||0}</td><td>${stats.balls?(stats.runs/stats.balls*100).toFixed(1):'0.0'}</td><td>${esc(dismissalDescription(inn,id,stats))}</td></tr>`;
  }).join('');
  $('liveBattingTable').innerHTML=`<table><thead><tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th><th>Status</th></tr></thead><tbody>${battingRows||'<tr><td colspan="7">No batting data yet</td></tr>'}</tbody></table>`;
  const bowlerIds=[m.bowler,...Object.keys(inn.bowlers||{})].filter((id,index,all)=>id&&all.indexOf(id)===index);
@@ -893,41 +896,62 @@ function renderLiveScoringSummary(m,inn){
   const stats=inn.bowlers[id]||{legal:0,maidens:0,runs:0,wickets:0,wides:0,noballs:0};
   const figures=bowlingFigures(stats);
   const dots=(inn.balls||[]).filter(ball=>ball.bowlerId===id&&ball.legal&&Number(ball.total)===0).length;
-  return `<tr><td>${esc(playerName(id))}${id===m.bowler?' *':''}</td><td>${figures.overs}</td><td>${stats.maidens||0}</td><td>${stats.runs||0}</td><td>${stats.wickets||0}</td><td>${figures.average}</td><td>${figures.economy}</td><td>${figures.strike}</td><td>${dots}</td><td>${stats.wides||0}</td><td>${stats.noballs||0}</td></tr>`;
+  return `<tr><td>${esc(playerName(id))}</td><td>${figures.overs}</td><td>${stats.maidens||0}</td><td>${stats.runs||0}</td><td>${stats.wickets||0}</td><td>${figures.average}</td><td>${figures.economy}</td><td>${figures.strike}</td><td>${dots}</td><td>${stats.wides||0}</td><td>${stats.noballs||0}</td></tr>`;
  }).join('');
  $('liveBowlingTable').innerHTML=`<table><thead><tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Avg</th><th>Econ</th><th>SR</th><th>D</th><th>WD</th><th>NB</th></tr></thead><tbody>${bowlingRows||'<tr><td colspan="11">No bowling data yet</td></tr>'}</tbody></table>`;
 }
+function openManualPlayerSelection(slot){
+ const m=activeMatch();
+ if(!m||m.status!=='live'||m.inningsBreak)return;
+ if(m.pendingOpeningSelection||m.pendingBatterSlot||m.pendingBowler)return toast('Complete the current player selection first');
+ if(!['striker','non','bowler'].includes(slot))return;
+ m.pendingManualPlayerSlot=slot;
+ renderScorer();
+ const focusId=slot==='striker'?'selectionStriker':slot==='non'?'selectionNon':'selectionBowler';
+ $(focusId).focus();
+}
+function cancelManualPlayerSelection(){
+ const m=activeMatch();if(!m||!m.pendingManualPlayerSlot)return;
+ m.pendingManualPlayerSlot='';
+ renderScorer();
+}
 function renderNextPlayerPrompts(m,inn){
  const opening=Boolean(m.pendingOpeningSelection),batterPending=Boolean(m.pendingBatterSlot),bowlerPending=Boolean(m.pendingBowler);
- $('openingPlayerFields').classList.toggle('hidden',!opening);
- $('incomingBatterField').classList.toggle('hidden',opening||!batterPending);
- $('nextBowlerField').classList.toggle('hidden',!opening&&!bowlerPending);
- $('nextPlayerPrompts').classList.toggle('hidden',!opening&&!batterPending&&!bowlerPending);
+ const manualSlot=['striker','non','bowler'].includes(m.pendingManualPlayerSlot)?m.pendingManualPlayerSlot:'';
+ $('openingPlayerFields').classList.toggle('hidden',!opening&&!['striker','non'].includes(manualSlot));
+ $('selectionStrikerWrap').classList.toggle('hidden',!opening&&manualSlot!=='striker');
+ $('incomingBatterField').classList.toggle('hidden',opening||Boolean(manualSlot)||!batterPending);
+ $('nextBowlerField').classList.toggle('hidden',!opening&&!bowlerPending&&manualSlot!=='bowler');
+ $('cancelPlayerSelection').classList.toggle('hidden',!manualSlot);
+ $('openSelectionPlayerManagement').classList.toggle('hidden',Boolean(manualSlot));
+ $('nextPlayerPrompts').classList.toggle('hidden',!opening&&!batterPending&&!bowlerPending&&!manualSlot);
  const lineup=inn.lineup?.length?inn.lineup:playersFor(inn.batting).map(player=>player.id);
  const batters=lineup.map(id=>state.players.find(player=>player.id===id)).filter(player=>player&&!inn.batters[player.id]?.out);
  const selectedStriker=$('selectionStriker').value;
- const openingStriker=batters.some(player=>player.id===selectedStriker)?selectedStriker:batters.some(player=>player.id===m.striker)?m.striker:batters[0]?.id||'';
+ const openingStriker=manualSlot&&batters.some(player=>player.id===m.striker)?m.striker:batters.some(player=>player.id===selectedStriker)?selectedStriker:batters.some(player=>player.id===m.striker)?m.striker:batters[0]?.id||'';
  fillPlayerPick('selectionStriker',batters,openingStriker);
  $('selectionStriker').onchange=()=>renderNextPlayerPrompts(m,inn);
  const selectedNon=$('selectionNon').value;
- const openingNon=batters.some(player=>player.id===selectedNon&&player.id!==openingStriker)?selectedNon:batters.some(player=>player.id===m.non&&player.id!==openingStriker)?m.non:batters.find(player=>player.id!==openingStriker)?.id||'';
+ const openingNon=manualSlot&&batters.some(player=>player.id===m.non&&player.id!==openingStriker)?m.non:batters.some(player=>player.id===selectedNon&&player.id!==openingStriker)?selectedNon:batters.some(player=>player.id===m.non&&player.id!==openingStriker)?m.non:batters.find(player=>player.id!==openingStriker)?.id||'';
  fillPlayerPick('selectionNon',batters.filter(player=>player.id!==openingStriker),openingNon);
- $('selectionNonWrap').classList.toggle('hidden',batters.length<2);
+ $('selectionNonWrap').classList.toggle('hidden',batters.length<2||(!opening&&manualSlot!=='non'));
  const slot=m.pendingBatterSlot,otherBatter=slot==='striker'?m.non:m.striker;
  const incomingBatters=batters.filter(player=>player.id!==otherBatter);
  const incoming=m[slot]&&incomingBatters.some(player=>player.id===m[slot])?m[slot]:'';
  fillPlayerPick('selectionIncomingBatter',incomingBatters,incoming);
  const bowlers=playersFor(inn.bowling),alternates=bowlers.filter(player=>player.id!==m.previousOverBowler);
  const availableBowlers=bowlerPending&&alternates.length?alternates:bowlers;
- const nextBowler=availableBowlers.some(player=>player.id===m.bowler)?m.bowler:availableBowlers[0]?.id||'';
+ const nextBowler=manualSlot&&availableBowlers.some(player=>player.id===m.bowler)?m.bowler:availableBowlers.some(player=>player.id===$('selectionBowler').value)?$('selectionBowler').value:availableBowlers[0]?.id||'';
  fillPlayerPick('selectionBowler',availableBowlers,nextBowler);
  const needsTwoBatters=opening&&batters.length>1;
  const readyOpening=Boolean(openingStriker)&&(!needsTwoBatters||Boolean(openingNon))&&Boolean(nextBowler);
+ const readyManual=manualSlot==='striker'?Boolean(openingStriker&&openingStriker!==m.non):manualSlot==='non'?Boolean(openingNon&&openingNon!==m.striker):manualSlot==='bowler'?Boolean(nextBowler):false;
  const readyIncoming=!batterPending||Boolean(incoming);
  const readyBowler=!bowlerPending&&!opening||Boolean(nextBowler);
- $('confirmPlayerSelection').disabled=opening?!readyOpening:!readyIncoming||!readyBowler;
- $('playerSelectionTitle').textContent=opening?'Choose opening players':batterPending&&bowlerPending?'New batter and bowler required':batterPending?'Wicket — choose incoming batter':'Over complete — choose next bowler';
- $('playerSelectionHint').textContent=opening?'Select the striker, non-striker and opening bowler, then confirm to begin scoring.':'Select the required player(s), then confirm to resume scoring.';
+ $('confirmPlayerSelection').disabled=opening?!readyOpening:manualSlot?!readyManual:!readyIncoming||!readyBowler;
+ $('confirmPlayerSelection').textContent=manualSlot?'Save selection':opening?'Done — start scoring':'Done — resume scoring';
+ $('playerSelectionTitle').textContent=manualSlot?`Change ${manualSlot==='non'?'non-striker':manualSlot}`:opening?'Choose opening players':batterPending&&bowlerPending?'New batter and bowler required':batterPending?'Wicket — choose incoming batter':'Over complete — choose next bowler';
+ $('playerSelectionHint').textContent=manualSlot?'Choose the correct player, then confirm to update the current selection.':opening?'Select the striker, non-striker and opening bowler, then confirm to begin scoring.':'Select the required player(s), then confirm to resume scoring.';
 }
 async function confirmPlayerSelection(){
  const m=activeMatch();if(!m||m.status!=='live')return;
@@ -939,6 +963,12 @@ async function confirmPlayerSelection(){
   if(batters.length>1&&(!batters.some(player=>player.id===nonId)||nonId===strikerId))return toast('Choose a different non-striker');
   if(!playersFor(inn.bowling).some(player=>player.id===bowlerId))return toast('Choose an opening bowler');
   m.striker=strikerId;m.non=batters.length>1?nonId:null;m.bowler=bowlerId;m.pendingOpeningSelection=false;
+ }else if(m.pendingManualPlayerSlot){
+  const slot=m.pendingManualPlayerSlot,playerId=slot==='striker'?$('selectionStriker').value:slot==='non'?$('selectionNon').value:$('selectionBowler').value;
+  if(slot==='striker'&&(!batters.some(player=>player.id===playerId)||playerId===m.non))return toast('Choose an eligible striker different from the non-striker');
+  if(slot==='non'&&(!batters.some(player=>player.id===playerId)||playerId===m.striker))return toast('Choose an eligible non-striker different from the striker');
+  if(slot==='bowler'&&!playersFor(inn.bowling).some(player=>player.id===playerId))return toast('Choose a bowler from the opposing team');
+  m[slot]=playerId;m.pendingManualPlayerSlot='';
  }else{
   if(m.pendingBatterSlot){
    const slot=m.pendingBatterSlot,playerId=$('selectionIncomingBatter').value;
@@ -988,7 +1018,7 @@ function renderScorer(){
  const lineup=inn.lineup?.length?inn.lineup:playersFor(inn.batting).map(p=>p.id);
  const eligibleBatters=lineup.filter(id=>!inn.batters[id]?.out);
  $('nonPlayerCell').hidden=eligibleBatters.length<2;
- const selectionPending=Boolean(m.pendingOpeningSelection||m.pendingBatterSlot||m.pendingBowler);
+ const selectionPending=Boolean(m.pendingOpeningSelection||m.pendingBatterSlot||m.pendingBowler||m.pendingManualPlayerSlot);
  $('swapBtn').disabled=selectionPending;
  document.querySelectorAll('#scorer [data-run],#scorer [data-extra]').forEach(button=>button.disabled=selectionPending);
  $('wicketBtn').disabled=selectionPending;$('undoBtn').disabled=selectionPending;
@@ -996,11 +1026,12 @@ function renderScorer(){
  updateWicketFielderControls();
  $('outBatter').innerHTML=`<option value="striker">${esc(playerName(m.striker))} out</option>${m.non?`<option value="non">${esc(playerName(m.non))} out</option>`:''}`;
  const bs=inn.batters[m.striker]||{runs:0,balls:0},ns=inn.batters[m.non]||{runs:0,balls:0},bo=inn.bowlers[m.bowler]||{runs:0,wickets:0,legal:0};
- $('strikerName').textContent=playerNameWithCaptain(m.striker,m);$('nonName').textContent=playerNameWithCaptain(m.non,m);$('bowlerName').textContent=playerNameWithCaptain(m.bowler,m);
+ $('strikerName').textContent=m.striker?`${playerNameWithCaptain(m.striker,m)} *`:playerNameWithCaptain(m.striker,m);$('nonName').textContent=playerNameWithCaptain(m.non,m);$('bowlerName').textContent=playerNameWithCaptain(m.bowler,m);
  $('strikerStats').textContent=`${bs.runs} (${bs.balls})`;$('nonStats').textContent=`${ns.runs} (${ns.balls})`;$('bowlerStats').textContent=`${bo.wickets}-${bo.runs} • ${Math.floor(bo.legal/6)}.${bo.legal%6}`;
  renderLiveScoringSummary(m,inn);
  renderNextPlayerPrompts(m,inn);
  const atBreak=m.status==='live'&&m.inningsBreak,active=m.status==='live'&&!m.inningsBreak;
+ document.querySelectorAll('#scorer [data-player-slot]').forEach(button=>button.disabled=!active||selectionPending);
  $('shareMatch').classList.toggle('hidden',m.status!=='completed');
  $('inningsBreak').classList.toggle('hidden',!atBreak);
  if(atBreak){const first=m.innings[0],defending=team(first.bowling);$('inningsBreakSummary').textContent=`${team(first.batting)?.name||'Team'} finished on ${first.runs}/${first.wickets}. Target for ${defending?.name||'the chasing team'}: ${first.runs+1}.`}
