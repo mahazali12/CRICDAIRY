@@ -1,4 +1,4 @@
-let state, currentId=null, currentPlayerId=null, currentTeamId=null, scorecardMatchId=null, scorecardInningsIndex=0, undoStack=[], lang='en', saveRevision=0, pendingDelivery=null, installPromptEvent=null, swipeStart=null, editingTournamentId=null, editingMatchId=null, editingTeamPlayerId=null;
+let state, currentId=null, currentPlayerId=null, currentTeamId=null, scorecardMatchId=null, scorecardInningsIndex=0, undoStack=[], lang='en', saveRevision=0, pendingDelivery=null, installPromptEvent=null, swipeStart=null, editingTournamentId=null, editingMatchId=null, editingTeamPlayerId=null, matchSetupStep=1;
 const $=id=>document.getElementById(id), uid=()=>Math.random().toString(36).slice(2,10);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function toast(s){$('toast').textContent=s;$('toast').classList.add('show');setTimeout(()=>$('toast').classList.remove('show'),2300)}
@@ -41,6 +41,7 @@ function page(p,recordHistory=true){
  $('home').classList.toggle('hidden',p!=='home');
  $('appHeader').classList.toggle('hidden',p==='home');
  document.body.classList.toggle('scoring-screen',p==='scorer');
+ if(p==='newmatch')showMatchSetupStep(1);
  if(p==='scorer')renderScorer();
  if(p==='playerProfile')renderPlayerProfile();
  if(p==='playerStats')renderPlayerStats();
@@ -124,6 +125,7 @@ function setup(){
  $('addPlayingPlayerA').onclick=()=>addPlayingPlayer('A');
  $('addPlayingPlayerB').onclick=()=>addPlayingPlayer('B');
  $('startMatch').onclick=startMatch;
+ $('nextMatchDetails').onclick=nextMatchDetails;
  $('matchMode').onchange=()=>{updateMatchModeInfo();renderPlayingPlayerSelectors()};
  $('teamA').onchange=()=>{updateTossWinnerOptions();updateMatchModeInfo();renderPlayingPlayerSelectors()};
  $('teamB').onchange=()=>{updateTossWinnerOptions();updateMatchModeInfo();renderPlayingPlayerSelectors()};
@@ -132,6 +134,8 @@ function setup(){
  $('countB').onchange=()=>updatePlayingCount('B');
  document.querySelectorAll('[data-lineup-preset]').forEach(button=>button.onclick=()=>setPlayingCountPreset(button.dataset.lineupPreset,Number(button.dataset.count)));
  $('confirmPlayers').onclick=savePlayingPlayers;
+ $('backPlayingStep').onclick=()=>showMatchSetupStep(matchSetupStep===3?2:1);
+ $('backTossStep').onclick=()=>showMatchSetupStep(3);
  document.querySelectorAll('[data-run]').forEach(b=>b.onclick=()=>scoreSelectedRun(+b.dataset.run));
  document.querySelectorAll('[data-extra]').forEach(b=>b.onclick=()=>extra(b.dataset.extra));
  $('wicketBtn').onclick=openWicketPanel;
@@ -273,6 +277,30 @@ function setPlayingCountPreset(teamKey,count){
 function setupTeams(){
  return {a:$('teamA').value,b:$('teamB').value,mode:$('matchMode').value};
 }
+function showMatchSetupStep(step){
+ matchSetupStep=Math.max(1,Math.min(4,step));
+ const details=matchSetupStep===1,teamASetup=matchSetupStep===2,teamBSetup=matchSetupStep===3,toss=matchSetupStep===4;
+ $('matchDetailsStep').classList.toggle('hidden',!details);
+ $('playingXISetup').classList.toggle('hidden',!teamASetup&&!teamBSetup);
+ $('tossSetupStep').classList.toggle('hidden',!toss);
+ $('teamBoxA').classList.toggle('hidden',!teamASetup);
+ $('teamBoxB').classList.toggle('hidden',!teamBSetup);
+ const stepCopy=['Match details','Team A Playing XI','Team B Playing XI','Toss'];
+ $('matchSetupProgress').textContent=`Step ${matchSetupStep} of 4 — ${stepCopy[matchSetupStep-1]}`;
+ $('playingPlayersHeading').textContent=teamASetup?`${team($('teamA').value)?.name||'Team A'} Playing XI`:teamBSetup?`${team($('teamB').value)?.name||'Team B'} Playing XI`:'🏏 Select Playing XI';
+ $('confirmPlayers').textContent=teamASetup?'Confirm Team A XI — Next':'Confirm Team B XI — Next: Toss';
+ $('backPlayingStep').textContent=teamASetup?'Back: Match Details':'Back: Team A XI';
+ if(teamASetup||teamBSetup)$('selectionMessage').textContent=`Select exactly ${$('count'+(teamASetup?'A':'B')).value} players for Team ${teamASetup?'A':'B'}, then confirm.`;
+ $('matchModeHint').textContent=details?'Enter match details and choose both teams to begin setup.':teamASetup||teamBSetup?'Select the player count and exactly that many players, then confirm to continue.':'Select the toss winner and batting decision, then start the match.';
+}
+function nextMatchDetails(){
+ const {a,b}=setupTeams();
+ if(!a||!b||a===b)return toast('Select two different teams first');
+ const format=$('matchFormat').value,overs=format==='Test Match'?null:Number($('matchOvers').value);
+ if(overs!==null&&(!Number.isInteger(overs)||overs<1||overs>100))return toast('Overs must be a whole number between 1 and 100');
+ updateTossWinnerOptions();
+ showMatchSetupStep(2);
+}
 function renderPlayingPlayerSelectors(){
  const setup=setupTeams(),draft=state.playingDraft,confirmed=state.playingSelection;
  const matchesSetup=value=>value&&value.teamA===setup.a&&value.teamB===setup.b&&value.mode===setup.mode;
@@ -294,7 +322,7 @@ function renderPlayingPlayerSelectors(){
  fillReserveSelect('B',selectedB,saved?.reserveB);
  $('reserveA').onchange=persistPlayingDraft;$('reserveB').onchange=persistPlayingDraft;
  updatePlayingCounts();
- $('selectionMessage').textContent=matchesSetup(confirmed)?'Playing players confirmed.':'Select the required players for both teams, then confirm.';
+ $('selectionMessage').textContent=matchesSetup(confirmed)?'Playing players confirmed.':`Select exactly ${$('count'+(matchSetupStep===3?'B':'A')).value} players for the active team, then confirm.`;
 }
 function addPlayingPlayer(teamKey){
  const teamId=$(`team${teamKey}`).value,name=$(`newPlayingPlayer${teamKey}`).value.trim();
@@ -329,23 +357,35 @@ function persistPlayingDraft(){
  updatePlayingCounts();
  state.playingSelection=null;
  state.playingDraft={teamA:setup.a,teamB:setup.b,mode:setup.mode,countA:Number($('countA').value),countB:Number($('countB').value),playersA,playersB,reserveA:$('reserveA').value||'',reserveB:$('reserveB').value||''};
- $('selectionMessage').textContent='Player selection changed. Confirm players before starting the match.';
+ $('selectionMessage').textContent="Player selection changed. Confirm this team's lineup to continue.";
  const revision=++saveRevision;$('saveStatus').textContent='Saving…';
  Store.save(state).then(ok=>{if(revision===saveRevision)$('saveStatus').textContent=ok?'Saved on this device':'Save failed — export a backup'});
 }
 function savePlayingPlayers(){
- const setup=setupTeams(),countA=Number($('countA').value),countB=Number($('countB').value);
- const playersA=selectedPlayingIds('A'),playersB=selectedPlayingIds('B');
- const availableA=playersFor(setup.a).length,availableB=playersFor(setup.b).length;
+ if(matchSetupStep!==2&&matchSetupStep!==3)return;
+ const setup=setupTeams(),teamKey=matchSetupStep===2?'A':'B',teamId=teamKey==='A'?setup.a:setup.b;
+ const count=Number($(`count${teamKey}`).value),players=selectedPlayingIds(teamKey),available=playersFor(teamId).length;
  if(!setup.a||!setup.b||setup.a===setup.b)return toast('Select two different teams first');
- if(!Number.isInteger(countA)||countA<1||countA>15||countA>availableA||!Number.isInteger(countB)||countB<1||countB>15||countB>availableB)return toast('Each team count must be between 1 and its available squad size (maximum 15).');
- if(playersA.length!==countA||playersB.length!==countB)return toast('Select exactly the number of players shown for both teams.');
- state.playingSelection={teamA:setup.a,teamB:setup.b,mode:setup.mode,countA,countB,playersA,playersB,reserveA:$('reserveA').value||'',reserveB:$('reserveB').value||''};
- state.playingDraft=state.playingSelection;
+ if(!Number.isInteger(count)||count<1||count>15||count>available)return toast(`Team ${teamKey} count must be between 1 and its available squad size (maximum 15).`);
+ if(players.length!==count)return toast(`Select exactly ${count} players for Team ${teamKey}.`);
+ const matchesSetup=value=>value&&value.teamA===setup.a&&value.teamB===setup.b&&value.mode===setup.mode;
+ const draft=matchesSetup(state.playingDraft)?{...state.playingDraft}:{teamA:setup.a,teamB:setup.b,mode:setup.mode,countA:Number($('countA').value),countB:Number($('countB').value),playersA:selectedPlayingIds('A'),playersB:selectedPlayingIds('B'),reserveA:$('reserveA').value||'',reserveB:$('reserveB').value||''};
+ draft[`count${teamKey}`]=count;
+ draft[`players${teamKey}`]=players;
+ draft[`reserve${teamKey}`]=$(`reserve${teamKey}`).value||'';
+ state.playingDraft=draft;
+ state.playingSelection=null;
+ if(teamKey==='A'){
+  $('selectionMessage').textContent='Team A Playing XI confirmed.';
+  showMatchSetupStep(3);
+ }else{
+  state.playingSelection={...draft,playersA:[...draft.playersA],playersB:[...draft.playersB]};
+  $('selectionMessage').textContent='Team B Playing XI confirmed.';
+  showMatchSetupStep(4);
+ }
  const revision=++saveRevision;$('saveStatus').textContent='Saving…';
  Store.save(state).then(ok=>{if(revision===saveRevision)$('saveStatus').textContent=ok?'Saved on this device':'Save failed — export a backup'});
- $('selectionMessage').textContent='Players successfully selected!';
- toast('Playing players confirmed!');
+ toast(teamKey==='A'?'Team A XI confirmed':'Team B XI confirmed');
 }
 function matchLineup(m,teamId){
  if(Array.isArray(m.lineups?.[teamId]))return [...m.lineups[teamId]];
@@ -516,20 +556,25 @@ function addMatchPlayer(){
  save();renderScorer();toast(replaceId?`${player.name} replaced ${playerName(replaceId)} in ${team(teamId)?.name||'the team'}'s lineup.`:`${player.name} added to ${team(teamId)?.name||'the team'}'s lineup.`);
 }
 function startMatch(){
+ if(matchSetupStep!==4)return toast('Complete match details, both Playing XIs and the toss first');
  const a=$('teamA').value,b=$('teamB').value;if(!a||!b||a===b)return toast('Create/select two different teams');
  const mode=$('matchMode').value,matchFormat=$('matchFormat').value;
  const selection=state.playingSelection;
  const availableA=playersFor(a),availableB=playersFor(b);
  const validSelection=selection&&selection.teamA===a&&selection.teamB===b&&selection.mode===mode;
- const selectedA=validSelection&&Array.isArray(selection.playersA)?selection.playersA.filter(id=>availableA.some(p=>p.id===id)):[];
- const selectedB=validSelection&&Array.isArray(selection.playersB)?selection.playersB.filter(id=>availableB.some(p=>p.id===id)):[];
- const countA=validSelection?Math.max(1,Math.min(15,Number(selection.countA)||1)):(mode==='standard'?Math.min(11,availableA.length||1):1);
- const countB=validSelection?Math.max(1,Math.min(15,Number(selection.countB)||1)):(mode==='standard'?Math.min(11,availableB.length||1):1);
+ if(!validSelection)return toast("Confirm both teams' Playing XIs before starting the match");
+ const selectedA=Array.isArray(selection.playersA)?selection.playersA.filter(id=>availableA.some(p=>p.id===id)):[];
+ const selectedB=Array.isArray(selection.playersB)?selection.playersB.filter(id=>availableB.some(p=>p.id===id)):[];
+ const countA=Math.max(1,Math.min(15,Number(selection.countA)||1));
+ const countB=Math.max(1,Math.min(15,Number(selection.countB)||1));
+ if(selectedA.length!==countA||selectedB.length!==countB)return toast('The confirmed Playing XI has changed. Please select both teams again.');
  const lineupA=[...new Set(selectedA)].slice(0,countA);
  const lineupB=[...new Set(selectedB)].slice(0,countB);
  const overs=matchFormat==='Test Match'?null:Number($('matchOvers').value);
  if(overs!==null&&(!Number.isInteger(overs)||overs<1||overs>100))return toast('Overs must be a whole number between 1 and 100');
- const winner=$('tossWinner').value||a, batFirst=$('tossDecision').value==='bat'?winner:(winner===a?b:a);
+ const winner=$('tossWinner').value;
+ if(![a,b].includes(winner))return toast('Select which team won the toss');
+ const batFirst=$('tossDecision').value==='bat'?winner:(winner===a?b:a);
  const lineups={[a]:lineupA,[b]:lineupB},firstLineup=lineups[batFirst];
  const first=newInnings(batFirst,batFirst===a?b:a,firstLineup,mode);
  first.wicketLimit=Math.max(1,(batFirst===a?countA:countB)-(mode==='standard'?1:0));

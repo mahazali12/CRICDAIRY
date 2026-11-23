@@ -27,8 +27,8 @@
 <small class="home-back-hint">Swipe right from the left edge to return here.</small>
 </section>
 <section id="newmatch" class="page">
-<div class="section-head"><div><p class="eyebrow">MATCH & PLAYING XI SETUP</p><h1>Create Match / Select Playing XI</h1></div></div>
-<div class="panel form-grid">
+<div class="section-head"><div><p class="eyebrow">MATCH SETUP</p><h1>Create Match</h1><p id="matchSetupProgress" class="muted">Step 1 of 4 — Match details</p></div></div>
+<div id="matchDetailsStep" class="panel form-grid">
 <label>Match title (optional)<input id="matchTitle" placeholder="e.g. Sunday Friendly"></label>
 <label>Format<select id="matchFormat"><option>T5</option><option>T10</option><option>T15</option><option selected>T20</option><option>T25</option><option>T30</option><option>ODI 50 Overs</option><option>Test Match</option><option>Custom</option></select></label>
 <label>Overs per innings<input id="matchOvers" type="number" min="1" max="100" value="20"></label>
@@ -36,18 +36,23 @@
 <label>Series (optional)<select id="matchSeries"><option value="">Select series (optional)</option></select></label>
 <label>Venue (optional)<input id="matchVenue" placeholder="Ground / venue"></label>
 <label>Team A<select id="teamA"></select></label><label>Team B<select id="teamB"></select></label>
-<section class="custom-players wide" aria-labelledby="playingPlayersHeading">
+<label>Match date<input id="matchDate" type="date"></label>
+<div class="wide actions"><button type="button" class="primary" id="nextMatchDetails">Next: Select Team A XI</button><button type="button" class="ghost" id="addQuickTeam">＋ Add team</button></div>
+</div>
+<section id="playingXISetup" class="custom-players hidden" aria-labelledby="playingPlayersHeading">
 <h2 id="playingPlayersHeading">🏏 Select Playing XI</h2>
 <div class="playing-teams">
-<div class="team-box"><h3 id="playingTeamAName">Team A</h3><label for="countA">Players to play</label><input type="number" id="countA" value="11" min="1" max="15"><div class="lineup-presets" aria-label="Team A player count"><button type="button" data-lineup-preset="A" data-count="1">1</button><button type="button" data-lineup-preset="A" data-count="6">6</button><button type="button" data-lineup-preset="A" data-count="11">XI</button><button type="button" data-lineup-preset="A" data-count="15">15</button></div><label id="reserveALabel" for="reserveA" class="reserve-label">12th man / backup (optional)</label><select id="reserveA"><option value="">No 12th man selected</option></select><span id="selectedCountA" class="selection-count"></span><div id="playersA" class="playing-player-list"></div><div class="inline-form playing-player-add"><input id="newPlayingPlayerA" placeholder="Add missing player name"><button type="button" id="addPlayingPlayerA">Add player</button></div></div>
-<div class="team-box"><h3 id="playingTeamBName">Team B</h3><label for="countB">Players to play</label><input type="number" id="countB" value="11" min="1" max="15"><div class="lineup-presets" aria-label="Team B player count"><button type="button" data-lineup-preset="B" data-count="1">1</button><button type="button" data-lineup-preset="B" data-count="6">6</button><button type="button" data-lineup-preset="B" data-count="11">XI</button><button type="button" data-lineup-preset="B" data-count="15">15</button></div><label id="reserveBLabel" for="reserveB" class="reserve-label">12th man / backup (optional)</label><select id="reserveB"><option value="">No 12th man selected</option></select><span id="selectedCountB" class="selection-count"></span><div id="playersB" class="playing-player-list"></div><div class="inline-form playing-player-add"><input id="newPlayingPlayerB" placeholder="Add missing player name"><button type="button" id="addPlayingPlayerB">Add player</button></div></div>
+<div id="teamBoxA" class="team-box"><h3 id="playingTeamAName">Team A</h3><label for="countA">Players to play</label><input type="number" id="countA" value="11" min="1" max="15"><div class="lineup-presets" aria-label="Team A player count"><button type="button" data-lineup-preset="A" data-count="1">1</button><button type="button" data-lineup-preset="A" data-count="6">6</button><button type="button" data-lineup-preset="A" data-count="11">XI</button><button type="button" data-lineup-preset="A" data-count="15">15</button></div><label id="reserveALabel" for="reserveA" class="reserve-label">12th man / backup (optional)</label><select id="reserveA"><option value="">No 12th man selected</option></select><span id="selectedCountA" class="selection-count"></span><div id="playersA" class="playing-player-list"></div><div class="inline-form playing-player-add"><input id="newPlayingPlayerA" placeholder="Add missing player name"><button type="button" id="addPlayingPlayerA">Add player</button></div></div>
+<div id="teamBoxB" class="team-box"><h3 id="playingTeamBName">Team B</h3><label for="countB">Players to play</label><input type="number" id="countB" value="11" min="1" max="15"><div class="lineup-presets" aria-label="Team B player count"><button type="button" data-lineup-preset="B" data-count="1">1</button><button type="button" data-lineup-preset="B" data-count="6">6</button><button type="button" data-lineup-preset="B" data-count="11">XI</button><button type="button" data-lineup-preset="B" data-count="15">15</button></div><label id="reserveBLabel" for="reserveB" class="reserve-label">12th man / backup (optional)</label><select id="reserveB"><option value="">No 12th man selected</option></select><span id="selectedCountB" class="selection-count"></span><div id="playersB" class="playing-player-list"></div><div class="inline-form playing-player-add"><input id="newPlayingPlayerB" placeholder="Add missing player name"><button type="button" id="addPlayingPlayerB">Add player</button></div></div>
 </div>
-<button type="button" id="confirmPlayers">Confirm Players</button><p id="selectionMessage" aria-live="polite"></p>
+<div class="wide actions setup-step-actions"><button type="button" id="backPlayingStep" class="ghost">Back</button><button type="button" id="confirmPlayers" class="primary">Confirm Team A XI — Next</button></div><p id="selectionMessage" aria-live="polite"></p>
 </section>
+<div id="tossSetupStep" class="panel form-grid hidden">
+<h2 class="wide">Toss</h2>
 <label>Toss won by<select id="tossWinner"></select></label><label>Decision<select id="tossDecision"><option value="bat">Bat first</option><option value="bowl">Bowl first</option></select></label>
-<label>Match date<input id="matchDate" type="date"></label>
-<div class="wide actions"><button class="primary" id="startMatch">Start Match</button><button class="ghost" id="addQuickTeam">＋ Add team</button></div>
-</div><p id="matchModeHint" class="hint">Set each team's player count independently, then select the playing lineup. Add at least one player to each team.</p>
+<div class="wide actions setup-step-actions"><button type="button" id="backTossStep" class="ghost">Back: Team B XI</button><button type="button" class="primary" id="startMatch">Start Match</button></div>
+</div>
+<p id="matchModeHint" class="hint">Enter match details and choose both teams to begin setup.</p>
 </section>
 <section id="live" class="page">
 <div class="section-head"><div><p class="eyebrow">LIVE CENTER</p><h1>Live matches</h1></div></div><div id="liveMatches" class="match-list empty">No live matches.</div>
