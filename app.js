@@ -449,12 +449,25 @@ function renderMatchPlayerActionState(){
  document.querySelectorAll('[data-match-player-section]').forEach(section=>section.classList.toggle('hidden',section.dataset.matchPlayerSection!==activeMatchPlayerAction));
  $('matchPlayerActionHint').classList.toggle('hidden',Boolean(activeMatchPlayerAction));
 }
+function renderLiveMatchPerformance(m){
+ if(matchPerformanceMatchId!==m.id){matchPerformanceMatchId=m.id;matchPerformanceTeamId=null}
+ const selectedTeam=m.teams.includes(matchPerformanceTeamId)?matchPerformanceTeamId:null;
+ $('liveMatchPerformanceTabs').innerHTML=m.teams.map(teamId=>`<button type="button" class="ghost ${teamId===selectedTeam?'active':''}" role="tab" aria-selected="${teamId===selectedTeam}" data-live-match-performance-team="${esc(teamId)}">${esc(matchTeamName(teamId))}</button>`).join('');
+ $('liveMatchPerformanceContent').innerHTML=selectedTeam?renderMatchTeamPerformance(m,selectedTeam):'<p class="muted">Choose Team A or Team B to view its player performance.</p>';
+ document.querySelectorAll('[data-live-match-performance-team]').forEach(button=>button.onclick=()=>{
+  matchPerformanceTeamId=matchPerformanceTeamId===button.dataset.liveMatchPerformanceTeam?null:button.dataset.liveMatchPerformanceTeam;
+  renderLiveMatchPerformance(m);renderMatchSummary(m);
+ });
+}
 function renderMatchPlayerControls(m){
  const panel=$('matchPlayerPanel');
- panel.classList.toggle('hidden',!m||m.status!=='live');
- if(!m||m.status!=='live')return;
+ const isLive=Boolean(m&&m.status==='live');
+ panel.classList.toggle('hidden',!isLive);
+ $('liveMatchPerformancePanel').classList.toggle('hidden',!isLive);
+ if(!isLive)return;
  if(matchPlayerControlsMatchId!==m.id){matchPlayerControlsMatchId=m.id;activeMatchPlayerAction=''}
  renderMatchPlayerActionState();
+ renderLiveMatchPerformance(m);
  $('returnToPlayerSelection').classList.toggle('hidden',!m.pendingOpeningSelection&&!m.pendingBowler&&!m.pendingBatterSlot);
  const teamSelect=$('matchPlayerTeam'),selectedTeam=teamSelect.value,selectedEdit=$('matchPlayerEditSelect').value;
  teamSelect.innerHTML=m.teams.map(id=>`<option value="${esc(id)}">${esc(team(id)?.name||'Team')}</option>`).join('');

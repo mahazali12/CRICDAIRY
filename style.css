@@ -141,6 +141,7 @@
 .match-player-panel summary small{margin-top:4px;color:var(--muted)}
 .match-player-content{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:14px}
 .match-player-content>#returnToPlayerSelection,.match-player-action-menu,.match-player-content>#matchPlayerActionHint,.match-player-section{grid-column:1/-1}
+.live-match-performance-panel h3{margin:0 0 10px}
 .match-player-action-menu{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .match-player-action-menu button{min-width:0}
 .match-player-action-menu button.active{border-color:var(--green);color:var(--green);background:#173323}
@@ -149,7 +150,7 @@
 @media(max-width:650px){.score-hero{align-items:flex-start;flex-direction:column}.target-box{text-align:left;width:100%}.win-prediction{min-width:0;max-width:none}.match-player-content{grid-template-columns:1fr}.match-player-action-menu{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 #scorer.page.active{display:grid;grid-template-columns:minmax(120px,.7fr) minmax(0,1.3fr);gap:12px}
-#scorer>.section-head,#scorer>.innings-break,#scorer>.score-hero>.player-strip,#scorer>.score-hero>#liveScoringSummary,#scorer>#nextPlayerPrompts,#scorer>#matchPlayerPanel,#scorer>.scoring-layout>.panel:last-child,#scorer>.panel:last-child{grid-column:1/-1}
+#scorer>.section-head,#scorer>.innings-break,#scorer>.score-hero>.player-strip,#scorer>.score-hero>#liveScoringSummary,#scorer>#matchPlayerPanel,#scorer>#liveMatchPerformancePanel,#scorer>#nextPlayerPrompts,#scorer>.scoring-layout>.panel:last-child,#scorer>.panel:last-child{grid-column:1/-1}
 #scorer>.score-hero,#scorer>.scoring-layout{display:contents}
 #scorer>.score-hero>div:first-child{grid-column:1;grid-row:2;display:flex;flex-direction:column;justify-content:center;min-width:0;margin:0;padding:14px;background:linear-gradient(110deg,#0e4625,#102318);border:1px solid #28633b;border-radius:17px}
 #scorer>.score-hero .big-score{font-size:clamp(30px,5vw,48px);letter-spacing:-1px}
