@@ -206,7 +206,9 @@ function setup(){
  $('reportPrint').onclick=()=>{const id=$('reportMatch').value;if(id){currentId=id;page('scorer');setTimeout(printMatchReport,250)}};
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')Store.save(state)});
  window.addEventListener('pagehide',()=>{Store.save(state)});
- if('serviceWorker'in navigator && location.protocol!=='file:')navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(registration=>registration.update()).catch(()=>{});
+ if('serviceWorker'in navigator && location.protocol!=='file:'){
+  navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(registration=>registration.update()).catch(error=>console.error('Service worker registration failed',error));
+ }
  updateMatchModeInfo();
  renderPlayingPlayerSelectors();
  renderInstallPanel();
