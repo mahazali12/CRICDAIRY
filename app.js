@@ -882,23 +882,9 @@ function renderWinningPrediction(m,inn){
  $('winPredictionA').style.flexBasis=`${aPercent}%`;$('winPredictionB').style.flexBasis=`${bPercent}%`;
  document.querySelector('.prediction-meter').setAttribute('aria-valuenow',String(aPercent));
 }
-function renderLiveScoringSummary(m,inn){
+function renderLiveScoringSummary(inn){
  const recent=(inn.balls||[]).slice(-6);
  $('recentBalls').innerHTML=recent.map(ball=>`<span class="recent-ball ${ball.wicket?'wicket':''} ${ball.type&&ball.type!=='run'?'extra':''}" title="${esc(ball.type||'run')}">${esc(ball.text||'•')}</span>`).join('')||'<span class="recent-ball empty-ball">—</span>';
- const batterIds=[m.striker,m.non,...Object.keys(inn.batters||{})].filter((id,index,all)=>id&&all.indexOf(id)===index);
- const battingRows=batterIds.map(id=>{
-  const stats=inn.batters[id]||{runs:0,balls:0,fours:0,sixes:0,out:false,dismissal:''},active=id===m.striker||id===m.non;
-  return `<tr${active?' class="current-batter"':''}><td>${esc(playerName(id))}${id===m.striker?' *':''}</td><td>${stats.runs||0}</td><td>${stats.balls||0}</td><td>${stats.fours||0}</td><td>${stats.sixes||0}</td><td>${stats.balls?(stats.runs/stats.balls*100).toFixed(1):'0.0'}</td><td>${esc(dismissalDescription(inn,id,stats))}</td></tr>`;
- }).join('');
- $('liveBattingTable').innerHTML=`<table><thead><tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th><th>Status</th></tr></thead><tbody>${battingRows||'<tr><td colspan="7">No batting data yet</td></tr>'}</tbody></table>`;
- const bowlerIds=[m.bowler,...Object.keys(inn.bowlers||{})].filter((id,index,all)=>id&&all.indexOf(id)===index);
- const bowlingRows=bowlerIds.map(id=>{
-  const stats=inn.bowlers[id]||{legal:0,maidens:0,runs:0,wickets:0,wides:0,noballs:0};
-  const figures=bowlingFigures(stats);
-  const dots=(inn.balls||[]).filter(ball=>ball.bowlerId===id&&ball.legal&&Number(ball.total)===0).length;
-  return `<tr><td>${esc(playerName(id))}</td><td>${figures.overs}</td><td>${stats.maidens||0}</td><td>${stats.runs||0}</td><td>${stats.wickets||0}</td><td>${figures.average}</td><td>${figures.economy}</td><td>${figures.strike}</td><td>${dots}</td><td>${stats.wides||0}</td><td>${stats.noballs||0}</td></tr>`;
- }).join('');
- $('liveBowlingTable').innerHTML=`<table><thead><tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Avg</th><th>Econ</th><th>SR</th><th>D</th><th>WD</th><th>NB</th></tr></thead><tbody>${bowlingRows||'<tr><td colspan="11">No bowling data yet</td></tr>'}</tbody></table>`;
 }
 function openManualPlayerSelection(slot){
  const m=activeMatch();
@@ -1033,12 +1019,13 @@ function renderScorer(){
  $('outBatter').innerHTML=`<option value="striker">${esc(playerName(m.striker))} out</option>${m.non?`<option value="non">${esc(playerName(m.non))} out</option>`:''}`;
  const bs=inn.batters[m.striker]||{runs:0,balls:0},ns=inn.batters[m.non]||{runs:0,balls:0},bo=inn.bowlers[m.bowler]||{runs:0,wickets:0,legal:0};
  $('strikerName').textContent=m.striker?`${playerNameWithCaptain(m.striker,m)} *`:playerNameWithCaptain(m.striker,m);$('nonName').textContent=playerNameWithCaptain(m.non,m);$('bowlerName').textContent=playerNameWithCaptain(m.bowler,m);
- $('strikerStats').textContent=`${bs.runs} (${bs.balls})`;$('nonStats').textContent=`${ns.runs} (${ns.balls})`;$('bowlerStats').textContent=`${bo.wickets}-${bo.runs} • ${Math.floor(bo.legal/6)}.${bo.legal%6}`;
- renderLiveScoringSummary(m,inn);
+ $('strikerStats').textContent=`${bs.runs} (${bs.balls}) • 4x${bs.fours||0} 6x${bs.sixes||0} • SR ${bs.balls?(bs.runs/bs.balls*100).toFixed(1):'0.0'}`;$('nonStats').textContent=`${ns.runs} (${ns.balls}) • 4x${ns.fours||0} 6x${ns.sixes||0} • SR ${ns.balls?(ns.runs/ns.balls*100).toFixed(1):'0.0'}`;$('bowlerStats').textContent=`${Math.floor(bo.legal/6)}.${bo.legal%6} ov • ${bo.runs} R • ${bo.wickets} W`;
+ renderLiveScoringSummary(inn);
  renderNextPlayerPrompts(m,inn);
  const atBreak=m.status==='live'&&m.inningsBreak,active=m.status==='live'&&!m.inningsBreak;
  document.querySelectorAll('#scorer [data-player-slot]').forEach(button=>button.disabled=!active||selectionPending);
  $('shareMatch').classList.toggle('hidden',m.status!=='completed');
+ $('matchSummaryPanel').classList.toggle('hidden',m.status!=='completed');
  $('inningsBreak').classList.toggle('hidden',!atBreak);
  if(atBreak){const first=m.innings[0],defending=team(first.bowling);$('inningsBreakSummary').textContent=`${team(first.batting)?.name||'Team'} finished on ${first.runs}/${first.wickets}. Target for ${defending?.name||'the chasing team'}: ${first.runs+1}.`}
  document.querySelector('.scoring-layout').classList.toggle('hidden',!active);
