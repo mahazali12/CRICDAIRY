@@ -340,7 +340,7 @@ body{background:#06331e}
 .tournament-team-option small{margin-top:3px;color:var(--muted)}
 .series-actions{display:flex;align-items:center;gap:10px}
 .series-actions button{white-space:nowrap}
-.series-create-form{display:grid;grid-template-columns:minmax(180px,1fr) 180px auto;gap:10px;align-items:end}
+.series-create-form{display:grid;grid-template-columns:150px minmax(180px,1fr) 180px auto;gap:10px;align-items:end}
 .series-create-form label{display:flex;flex-direction:column;gap:7px;margin:0;color:var(--muted);font-size:12px}
 .series-create-form input{margin:0}
 .series-buttons{display:flex;gap:8px}
@@ -377,3 +377,21 @@ body{background:#06331e}
 .completed-score-row small{grid-column:1/-1;color:#647267;font-size:9px}
 .completed-score-columns .muted{font-size:11px;color:#647267}
 @media(max-width:650px){.completed-score-columns{grid-template-columns:1fr}.completed-score-columns>div+div{border-left:0;border-top:1px solid #cbd8cf}.completed-innings header strong{font-size:20px}}
+
+.completed-innings>h4{margin:12px 12px 4px;color:#4d6455;font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+.completed-innings .table-wrap{padding:0 10px 6px}
+.completed-innings table{table-layout:fixed;color:#172219;font-variant-numeric:tabular-nums}
+.completed-innings th,.completed-innings td{padding:6px 5px;border-bottom:1px solid #d6dfd8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.completed-innings th:first-child,.completed-innings td:first-child{width:38%;text-align:left}
+.completed-innings th:not(:first-child),.completed-innings td:not(:first-child){text-align:center}
+.completed-innings th{color:#4d6455;font-size:10px}
+.completed-innings td{font-size:12px}
+.share-match-dialog{width:min(440px,calc(100vw - 28px));padding:24px;border:1px solid #36563d;border-radius:16px;background:#101d15;color:var(--text);box-shadow:0 20px 70px #000b}
+.share-match-dialog::backdrop{background:#000b;backdrop-filter:blur(3px)}
+.share-match-dialog h2{margin:0 35px 8px 0;font-size:20px}
+.share-match-dialog p{color:var(--muted);font-size:13px}
+.share-match-dialog form{position:absolute;top:10px;right:10px}
+.share-match-dialog .dialog-close{padding:5px 10px;font-size:20px}
+.share-match-options{display:grid;gap:10px;margin-top:18px}
+.share-match-options button{width:100%;text-align:left}
+@media(max-width:520px){.completed-innings th,.completed-innings td{padding:6px 3px}.completed-innings th:first-child,.completed-innings td:first-child{width:34%}.completed-innings td{font-size:10px}.scorecard-actions{gap:6px}.share-match-dialog{padding:20px}}
