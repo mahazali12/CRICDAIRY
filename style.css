@@ -177,7 +177,7 @@
 .player-selection-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .player-selection-actions button{width:100%}
 .wk-badge{display:inline-block;margin-left:6px;padding:2px 6px;border-radius:6px;background:#d2a83c;color:#241a00;font-size:10px;font-weight:800}
-.player-squad-number{flex:0 0 22px;color:var(--green);font-weight:800;text-align:right}
+.player-row-number{flex:0 0 22px;color:var(--green);font-weight:800;text-align:right}
 @media(max-width:650px){
  body.scoring-screen #sidebar{display:none!important}
  body.scoring-screen #appHeader{position:static}
@@ -382,8 +382,9 @@ body{background:#06331e}
 .completed-innings .table-wrap{padding:0 10px 6px}
 .completed-innings table{table-layout:fixed;color:#172219;font-variant-numeric:tabular-nums}
 .completed-innings th,.completed-innings td{padding:6px 5px;border-bottom:1px solid #d6dfd8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.completed-innings th:first-child,.completed-innings td:first-child{width:38%;text-align:left}
-.completed-innings th:not(:first-child),.completed-innings td:not(:first-child){text-align:center}
+.completed-innings th:first-child,.completed-innings td:first-child{width:7%;text-align:right}
+.completed-innings th:nth-child(2),.completed-innings td:nth-child(2){width:31%;text-align:left}
+.completed-innings th:not(:first-child):not(:nth-child(2)),.completed-innings td:not(:first-child):not(:nth-child(2)){text-align:center}
 .completed-innings th{color:#4d6455;font-size:10px}
 .completed-innings td{font-size:12px}
 .share-match-dialog{width:min(440px,calc(100vw - 28px));padding:24px;border:1px solid #36563d;border-radius:16px;background:#101d15;color:var(--text);box-shadow:0 20px 70px #000b}
@@ -394,4 +395,4 @@ body{background:#06331e}
 .share-match-dialog .dialog-close{padding:5px 10px;font-size:20px}
 .share-match-options{display:grid;gap:10px;margin-top:18px}
 .share-match-options button{width:100%;text-align:left}
-@media(max-width:520px){.completed-innings th,.completed-innings td{padding:6px 3px}.completed-innings th:first-child,.completed-innings td:first-child{width:34%}.completed-innings td{font-size:10px}.scorecard-actions{gap:6px}.share-match-dialog{padding:20px}}
+@media(max-width:520px){.completed-innings th,.completed-innings td{padding:6px 3px}.completed-innings th:first-child,.completed-innings td:first-child{width:7%}.completed-innings th:nth-child(2),.completed-innings td:nth-child(2){width:31%}.completed-innings td{font-size:10px}.scorecard-actions{gap:6px}.share-match-dialog{padding:20px}}

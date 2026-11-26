@@ -1,4 +1,4 @@
-const CACHE='cricdairy-v104';
+const CACHE='cricdairy-v105';
 const ASSETS=[
  './',
  './index.html',
